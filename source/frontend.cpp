@@ -14,6 +14,7 @@
 #pragma GCC diagnostic pop
 
 
+const int SYMBOL_SIZE = 5;
 
 
 /// Contains information about pixel color
@@ -33,9 +34,20 @@ typedef struct {
 } Image;
 
 
+/// Contains information about lexem or token
+typedef struct {
+    Pixel color = {};           ///< Token pixels color
+    unsigned int shape = 0;     ///< Bitflag that shows what pixels aren't white
+    int x = 0;                  ///< 'x' of the token left top corner
+    int y = 0;                  ///< 'y' of the token left top corner
+} Token;
+
+
 
 
 int is_white(const Pixel *pixel) {
+    assert(pixel && "Can't tell if null pixel is white or not!");
+
     return (pixel -> r == 255) && (pixel -> g == 255) && (pixel -> b == 255);
 }
 
@@ -92,13 +104,18 @@ void free_image(Image *image) {
 }
 
 
-unsigned int get_image_token(Image *image, int x, int y) {
-    unsigned int token = 0, mask = 1;
+Token get_image_token(const Image *image, int x, int y) {
+    assert(image && "Can't get token from null image!");
 
-    for (int _y = y; _y < y + 5; _y++) {
-        for (int _x = x; _x < x + 5; _x++) {
-            if (!is_white(image -> pixels + _x + _y * image -> width)) 
-                token |= mask;
+    Token token = {{}, 0, x, y};
+    unsigned int mask = 1;
+
+    for (int _y = y; _y < y + SYMBOL_SIZE; _y++) {
+        for (int _x = x; _x < x + SYMBOL_SIZE; _x++) {
+            if (!is_white(image -> pixels + _x + _y * image -> width)) {
+                token.shape |= mask;
+                token.color = image -> pixels[_x + _y * image -> width];
+            }
 
             mask <<= 1;
         }
@@ -108,12 +125,17 @@ unsigned int get_image_token(Image *image, int x, int y) {
 }
 
 
-void print_token(unsigned int token) {
+void print_token(const Token *token) {
+    assert(token && "Can't print null token!");
+
+    printf("x = %i, y = %i, color = ", token -> x, token -> y);
+    print_pixel(&token -> color, 'x');
+
     unsigned int mask = 1;
 
-    for (int y = 0; y < 5; y++) {
-        for (int x = 0; x < 5; x++) {
-            if (token & mask) putchar('*');
+    for (int y = 0; y < SYMBOL_SIZE; y++) {
+        for (int x = 0; x < SYMBOL_SIZE; x++) {
+            if (token -> shape & mask) putchar('*');
             else putchar(' ');
 
             mask <<= 1;
@@ -123,26 +145,33 @@ void print_token(unsigned int token) {
 }
 
 
-void parse_image(Image *image) {
-    assert(image -> width % 5 == 0 && image -> height % 5 == 0 && "Wrong image size!");
+Token *parse_image(const Image *image) {
+    assert(image && "Can't parse null image!");
+    assert(image -> width % (SYMBOL_SIZE + 1) == 0 && image -> height % (SYMBOL_SIZE + 1) == 0 && "Wrong image size!");
 
-    for (int y = 0; y < image -> height; y += 5)
-        for (int x = 0; x < image -> width; x += 5)
-            print_token(get_image_token(image, x, y));
+    Token *tokens = (Token *) calloc(image -> width / (SYMBOL_SIZE + 1) * image -> height / (SYMBOL_SIZE + 1), sizeof(Token));
+
+    for (int y = 0; y < image -> height; y += SYMBOL_SIZE + 1)
+        for (int x = 0; x < image -> width; x += SYMBOL_SIZE + 1)
+            tokens[x + y * image -> width / (SYMBOL_SIZE + 1)] = get_image_token(image, x, y);
+    
+    return tokens;
 }
 
 
 
 
 int main() {
-    Image img = read_image("debug/assign.png");
-    /*
-    for (int i = 0; i < img.width * img.height; i++)
-        print_pixel(img.pixels + i, 'i');
-    */
-    parse_image(&img);
+    Image img = read_image("debug/code.png");
+    
+    Token *tokens = parse_image(&img);
+
+    for(int i = 0; i < img.width / (SYMBOL_SIZE + 1) * img.height / (SYMBOL_SIZE + 1); i++)
+        if (tokens[i].shape) print_token(tokens + i);
 
     free_image(&img);
+
+    free(tokens);
 
     printf("Frontend!");
 
