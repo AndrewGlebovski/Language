@@ -13,34 +13,7 @@
 
 #pragma GCC diagnostic pop
 
-
-const int SYMBOL_SIZE = 5;
-
-
-/// Contains information about pixel color
-typedef struct {
-    unsigned char r = 0;        ///< Red channel
-    unsigned char g = 0;        ///< Green channel
-    unsigned char b = 0;        ///< Blue channel
-    unsigned char a = 0;        ///< Alpha channel
-} Pixel;
-
-
-/// Contains information about image size and pixels
-typedef struct {
-    Pixel *pixels = nullptr;    ///< Array of Pixel from top left corner to bottom right
-    int width = -1;             ///< Image width in pixels
-    int height = -1;            ///< Image height in pixels
-} Image;
-
-
-/// Contains information about lexem or token
-typedef struct {
-    Pixel color = {};           ///< Token pixels color
-    unsigned int shape = 0;     ///< Bitflag that shows what pixels aren't white
-    int x = 0;                  ///< 'x' of the token left top corner
-    int y = 0;                  ///< 'y' of the token left top corner
-} Token;
+#include "frontend.hpp"
 
 
 
@@ -104,38 +77,38 @@ void free_image(Image *image) {
 }
 
 
-Token get_image_token(const Image *image, int x, int y) {
-    assert(image && "Can't get token from null image!");
+Symbol get_image_symbol(const Image *image, int x, int y) {
+    assert(image && "Can't get symbol from null image!");
 
-    Token token = {{}, 0, x, y};
+    Symbol symbol = {{}, 0, x, y};
     unsigned int mask = 1;
 
     for (int _y = y; _y < y + SYMBOL_SIZE; _y++) {
         for (int _x = x; _x < x + SYMBOL_SIZE; _x++) {
             if (!is_white(image -> pixels + _x + _y * image -> width)) {
-                token.shape |= mask;
-                token.color = image -> pixels[_x + _y * image -> width];
+                symbol.shape |= mask;
+                symbol.color = image -> pixels[_x + _y * image -> width];
             }
 
             mask <<= 1;
         }
     }
 
-    return token;
+    return symbol;
 }
 
 
-void print_token(const Token *token) {
-    assert(token && "Can't print null token!");
+void print_symbol(const Symbol *symbol) {
+    assert(symbol && "Can't print null symbol!");
 
-    printf("x = %i, y = %i, color = ", token -> x, token -> y);
-    print_pixel(&token -> color, 'x');
+    printf("x = %i, y = %i, color = ", symbol -> x, symbol -> y);
+    print_pixel(&symbol -> color, 'x');
 
     unsigned int mask = 1;
 
     for (int y = 0; y < SYMBOL_SIZE; y++) {
         for (int x = 0; x < SYMBOL_SIZE; x++) {
-            if (token -> shape & mask) putchar('*');
+            if (symbol -> shape & mask) putchar('*');
             else putchar(' ');
 
             mask <<= 1;
@@ -145,17 +118,34 @@ void print_token(const Token *token) {
 }
 
 
-Token *parse_image(const Image *image) {
+Symbol *parse_image(const Image *image) {
     assert(image && "Can't parse null image!");
-    assert(image -> width % (SYMBOL_SIZE + 1) == 0 && image -> height % (SYMBOL_SIZE + 1) == 0 && "Wrong image size!");
 
-    Token *tokens = (Token *) calloc(image -> width / (SYMBOL_SIZE + 1) * image -> height / (SYMBOL_SIZE + 1), sizeof(Token));
+    const int OFFSET = SYMBOL_SIZE + 1;
 
-    for (int y = 0; y < image -> height; y += SYMBOL_SIZE + 1)
-        for (int x = 0; x < image -> width; x += SYMBOL_SIZE + 1)
-            tokens[x + y * image -> width / (SYMBOL_SIZE + 1)] = get_image_token(image, x, y);
+    assert(image -> width % OFFSET == 0 && image -> height % OFFSET == 0 && "Wrong image size!");
+
+    Symbol *symbols = (Symbol *) calloc(image -> width / OFFSET * image -> height / OFFSET, sizeof(Symbol));
+
+    for (int y = 0; y < image -> height / OFFSET; y++)
+        for (int x = 0; x < image -> width / OFFSET; x++)
+            symbols[x + y * image -> width / OFFSET] = get_image_symbol(image, x * OFFSET, y * OFFSET);
     
-    return tokens;
+    return symbols;
+}
+
+
+int clear_empty(Symbol *buffer, int buffer_size) {
+    assert(buffer && "Can't clear empty buffer!");
+
+    int read = 0, write = 0;
+
+    for (; read < buffer_size; read++) {
+        if (buffer[read].shape)
+            buffer[write++] = buffer[read];
+    }
+
+    return write;
 }
 
 
@@ -164,14 +154,18 @@ Token *parse_image(const Image *image) {
 int main() {
     Image img = read_image("debug/code.png");
     
-    Token *tokens = parse_image(&img);
+    Symbol *symbols = parse_image(&img);
 
-    for(int i = 0; i < img.width / (SYMBOL_SIZE + 1) * img.height / (SYMBOL_SIZE + 1); i++)
-        if (tokens[i].shape) print_token(tokens + i);
+    int symbols_size = img.width / (SYMBOL_SIZE + 1) * img.height / (SYMBOL_SIZE + 1);
+
+    symbols_size = clear_empty(symbols, symbols_size);
+
+    for(int i = 0; i < symbols_size; i++)
+        print_symbol(symbols + i);
 
     free_image(&img);
 
-    free(tokens);
+    free(symbols);
 
     printf("Frontend!");
 
