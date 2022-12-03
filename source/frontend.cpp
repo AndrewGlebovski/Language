@@ -18,6 +18,28 @@
 
 
 
+int main() {
+    Image img = read_image("debug/code.png");
+    
+    Symbol *symbols = parse_image(&img);
+
+    int symbols_size = img.width / (SYMBOL_SIZE + 1) * img.height / (SYMBOL_SIZE + 1);
+
+    symbols_size = clear_empty(symbols, symbols_size);
+
+    for(int i = 0; i < symbols_size; i++)
+        print_symbol(symbols + i);
+
+    free_image(&img);
+
+    free(symbols);
+
+    printf("Frontend!");
+
+    return 0;
+}
+
+
 int is_white(const Pixel *pixel) {
     assert(pixel && "Can't tell if null pixel is white or not!");
 
@@ -146,28 +168,4 @@ int clear_empty(Symbol *buffer, int buffer_size) {
     }
 
     return write;
-}
-
-
-
-
-int main() {
-    Image img = read_image("debug/code.png");
-    
-    Symbol *symbols = parse_image(&img);
-
-    int symbols_size = img.width / (SYMBOL_SIZE + 1) * img.height / (SYMBOL_SIZE + 1);
-
-    symbols_size = clear_empty(symbols, symbols_size);
-
-    for(int i = 0; i < symbols_size; i++)
-        print_symbol(symbols + i);
-
-    free_image(&img);
-
-    free(symbols);
-
-    printf("Frontend!");
-
-    return 0;
 }
