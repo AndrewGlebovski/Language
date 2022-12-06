@@ -105,6 +105,9 @@ void free_node(Node *node) {
         node -> right = nullptr;
     }
 
+    if (node -> type == TYPE_VAR)
+        free(node -> value.var);
+
     free(node);
 }
 
@@ -126,17 +129,19 @@ void print_node(Node *node, FILE *stream) {
     if (node -> left) print_node(node -> left, stream);
 
     switch (node -> type) {
-        case NODE_TYPES::TYPE_OP:
-            fprintf(stream, "%s ", op2str(node -> value.op));
-            break;
-        case NODE_TYPES::TYPE_NUM:
-            fprintf(stream, "%g ", node -> value.dbl);
-            break;
-        case NODE_TYPES::TYPE_VAR:
-            fprintf(stream, "%c ", node -> value.var);
-            break;
-        default:
-            fprintf(stream, "@");
+        case TYPE_OP:       fprintf(stream, "%s", op2str(node -> value.op)); break;
+        case TYPE_NUM:      fprintf(stream, "%g", node -> value.dbl); break;
+        case TYPE_VAR:      fprintf(stream, "%s", node -> value.var); break;
+        case TYPE_IF:       fprintf(stream, "IF"); break;
+        case TYPE_WHILE:    fprintf(stream, "WHILE"); break;
+        case TYPE_CALL:     fprintf(stream, "FUNC CALL"); break;
+        case TYPE_DEF:      fprintf(stream, "FUNC DEF"); break;
+        case TYPE_NVAR:     fprintf(stream, "NEW VAR"); break;
+        case TYPE_ARG:      fprintf(stream, "ARG"); break;
+        case TYPE_PAR:      fprintf(stream, "PAR"); break;
+        case TYPE_SEQ:      fprintf(stream, ";"); break;
+        case TYPE_BLOCK:    fprintf(stream, "BLOCK"); break;
+        default:            fprintf(stream, "@");
     }
 
     if (node -> right) print_node(node -> right, stream);
@@ -151,26 +156,11 @@ const char *op2str(int op) {
         case OPERATORS::OP_SUB: return "-";
         case OPERATORS::OP_MUL: return "*";
         case OPERATORS::OP_DIV: return "/";
-        case OPERATORS::OP_POW: return "^";
-        case OPERATORS::OP_LOG: return "log";
-        case OPERATORS::OP_SIN: return "sin";
-        case OPERATORS::OP_COS: return "cos";
+        case OPERATORS::OP_AND: return "&";
+        case OPERATORS::OP_OR:  return "&";
+        case OPERATORS::OP_NOT: return "!";
+        case OPERATORS::OP_ASS: return "=";
         default: return "#";
-    }
-}
-
-
-int chr2op(char op) {
-    switch(op) {
-        case '+': return OPERATORS::OP_ADD;
-        case '-': return OPERATORS::OP_SUB;
-        case '*': return OPERATORS::OP_MUL;
-        case '/': return OPERATORS::OP_DIV;
-        case '^': return OPERATORS::OP_POW;
-        case 'l': return OPERATORS::OP_LOG;
-        case 's': return OPERATORS::OP_SIN;
-        case 'c': return OPERATORS::OP_COS;
-        default: return OP_ERR;
     }
 }
 
@@ -192,21 +182,22 @@ int generate_file(Tree *tree, FILE *file) {
 
 
 void write_record(FILE *file, Node *node) {
-    fprintf(file, "    \"e%p\"[label=\"{<index> %-p | {<type> %s | <value> ", node, node,
-        (node -> type == TYPE_OP)? "OP" : ((node -> type == TYPE_NUM)? "NUM" : "VAR"));
+    fprintf(file, "    \"e%p\"[label=\"{<index> %-p | {<type> ", node, node);
 
     switch (node -> type) {
-        case NODE_TYPES::TYPE_OP:
-            fprintf(file, "%s", op2str(node -> value.op));
-            break;
-        case NODE_TYPES::TYPE_NUM:
-            fprintf(file, "%g", node -> value.dbl);
-            break;
-        case NODE_TYPES::TYPE_VAR:
-            fprintf(file, "%c", node -> value.var);
-            break;
-        default:
-            fprintf(file, "@");
+        case TYPE_OP:       fprintf(file, "OP | <value> %s", op2str(node -> value.op)); break;
+        case TYPE_NUM:      fprintf(file, "NUM | <value> %g", node -> value.dbl); break;
+        case TYPE_VAR:      fprintf(file, "VAR | <value> %s", node -> value.var); break;
+        case TYPE_IF:       fprintf(file, "IF"); break;
+        case TYPE_WHILE:    fprintf(file, "WHILE"); break;
+        case TYPE_CALL:     fprintf(file, "FUNC CALL"); break;
+        case TYPE_DEF:      fprintf(file, "FUNC DEF"); break;
+        case TYPE_NVAR:     fprintf(file, "NEW VAR"); break;
+        case TYPE_ARG:      fprintf(file, "ARG"); break;
+        case TYPE_PAR:      fprintf(file, "PAR"); break;
+        case TYPE_SEQ:      fprintf(file, ";"); break;
+        case TYPE_BLOCK:    fprintf(file, "BLOCK"); break;
+        default:            fprintf(file, "@");
     }
 
     fprintf(file, "}}\"];\n");

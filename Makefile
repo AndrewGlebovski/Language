@@ -26,7 +26,7 @@ frontend: $(addprefix $(BIN_DIR)/, $(addsuffix .o, frontend $(FRONT_DPD)))
 
 
 # Предварительная сборка frontend.cpp
-$(BIN_DIR)/frontend.o: $(addprefix $(SRC_DIR)/, frontend.cpp) $(addprefix $(LIB_DIR)/, $(addsuffix .hpp, $(FRONT_DPD)))
+$(BIN_DIR)/frontend.o: $(addprefix $(SRC_DIR)/, frontend.cpp frontend.hpp) $(addprefix $(LIB_DIR)/, $(addsuffix .hpp, $(FRONT_DPD)))
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 

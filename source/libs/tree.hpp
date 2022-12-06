@@ -6,29 +6,38 @@ typedef enum {
 
 
 typedef enum {
-    OP_ERR = 0,
     OP_ADD = 1,
-    OP_SUB = 2,
-    OP_MUL = 3,
-    OP_DIV = 4,
-    OP_POW = 5,
-    OP_LOG = 6,
-    OP_SIN = 7,
-    OP_COS = 8,
+    OP_SUB,
+    OP_MUL,
+    OP_DIV,
+    OP_AND,
+    OP_OR,
+    OP_NOT,
+    OP_ASS
 } OPERATORS;
 
 
 typedef enum {
-    TYPE_OP  = 1,
-    TYPE_NUM = 2,
-    TYPE_VAR = 3,
+    TYPE_ESC,
+    TYPE_OP,
+    TYPE_NUM,
+    TYPE_VAR,
+    TYPE_IF,
+    TYPE_WHILE,
+    TYPE_CALL,
+    TYPE_DEF,
+    TYPE_NVAR,
+    TYPE_ARG,
+    TYPE_PAR,
+    TYPE_SEQ,
+    TYPE_BLOCK
 } NODE_TYPES;
 
 
 typedef union {
     int    op;
     double dbl;
-    char   var;
+    char   *var;
 } NodeValue; 
 
 
