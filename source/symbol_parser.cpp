@@ -29,11 +29,11 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
             CASE_TOKEN_TYPE(NVAR);
             CASE_TOKEN_TYPE(SEQ);
 
-            case BRACKET_BEGIN: token -> type = TYPE_BLOCK; token -> value.dbl = 1.0; ptr++; break;
-            case BRACKET_END:   token -> type = TYPE_BLOCK; token -> value.dbl = 0.0; ptr++; break;
+            case BRACKET_BEGIN: token -> type = TYPE_BRACKET; token -> value.op = 1; ptr++; break;
+            case BRACKET_END:   token -> type = TYPE_BRACKET; token -> value.op = 0; ptr++; break;
 
-            case BLOCK_BEGIN: token -> type = TYPE_BLOCK; token -> value.dbl = 1.0; ptr++; break;
-            case BLOCK_END:   token -> type = TYPE_BLOCK; token -> value.dbl = 0.0; ptr++; break;
+            case BLOCK_BEGIN: token -> type = TYPE_BLOCK; token -> value.op = 1; ptr++; break;
+            case BLOCK_END:   token -> type = TYPE_BLOCK; token -> value.op = 0; ptr++; break;
             
             CASE_TOKEN_OP(ADD);
             CASE_TOKEN_OP(SUB);
@@ -165,6 +165,7 @@ void print_tokens(const Node *tokens) {
             case TYPE_OP:  printf("%s", op2str(tokens -> value.op)); break;
             case TYPE_NUM: printf("%lg", tokens -> value.dbl); break;
             case TYPE_VAR: printf("%s", tokens -> value.var); break;
+            case TYPE_BLOCK:  printf("%i", tokens -> value.op); break;
             default: break;
         }
 

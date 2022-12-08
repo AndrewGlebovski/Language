@@ -105,8 +105,16 @@ void free_node(Node *node) {
         node -> right = nullptr;
     }
 
-    if (node -> type == TYPE_VAR)
-        free(node -> value.var);
+    switch (node -> type) {
+        case TYPE_OP:       node -> value.op = 0; break;
+        case TYPE_NUM:      node -> value.dbl = 0.0; break;
+        case TYPE_VAR:      free(node -> value.var); break;
+        case TYPE_CALL:     free(node -> value.var); break;
+        case TYPE_DEF:      free(node -> value.var); break;
+        case TYPE_NVAR:     free(node -> value.var); break;
+        case TYPE_PAR:      free(node -> value.var); break;
+        default:            node -> value.dbl = 0.0;
+    }
 
     free(node);
 }
@@ -190,12 +198,12 @@ void write_record(FILE *file, Node *node) {
         case TYPE_VAR:      fprintf(file, "VAR | <value> %s", node -> value.var); break;
         case TYPE_IF:       fprintf(file, "IF"); break;
         case TYPE_WHILE:    fprintf(file, "WHILE"); break;
-        case TYPE_CALL:     fprintf(file, "FUNC CALL"); break;
-        case TYPE_DEF:      fprintf(file, "FUNC DEF"); break;
-        case TYPE_NVAR:     fprintf(file, "NEW VAR"); break;
+        case TYPE_CALL:     fprintf(file, "FUNC CALL | <value> %s", node -> value.var); break;
+        case TYPE_DEF:      fprintf(file, "FUNC DEF | <value> %s", node -> value.var); break;
+        case TYPE_NVAR:     fprintf(file, "NEW VAR | <value> %s", node -> value.var); break;
         case TYPE_ARG:      fprintf(file, "ARG"); break;
-        case TYPE_PAR:      fprintf(file, "PAR"); break;
-        case TYPE_SEQ:      fprintf(file, ";"); break;
+        case TYPE_PAR:      fprintf(file, "FUNC PAR | <value> %s", node -> value.var); break;
+        case TYPE_SEQ:      fprintf(file, "SEQ"); break;
         case TYPE_BLOCK:    fprintf(file, "BLOCK"); break;
         default:            fprintf(file, "@");
     }

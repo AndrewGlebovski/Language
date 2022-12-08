@@ -30,7 +30,8 @@ typedef enum {
     TYPE_ARG,
     TYPE_PAR,
     TYPE_SEQ,
-    TYPE_BLOCK
+    TYPE_BLOCK,
+    TYPE_BRACKET
 } NODE_TYPES;
 
 

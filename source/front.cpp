@@ -3,12 +3,13 @@
 #include "libs/tree.hpp"
 #include "image_parser.hpp"
 #include "symbol_parser.hpp"
+#include "grammar.hpp"
 
 
 
 
 int main() {
-    Image img = read_image("debug/AssignExample.png");
+    Image img = read_image("debug/Example.png");
 
     int size = 0;    
 
@@ -18,11 +19,17 @@ int main() {
 
     Node *tokens = parse_symbols(symbols, size, &size);
 
-    free(symbols);
-    
     print_tokens(tokens);
 
-    free_tokens(tokens);
+    free(symbols);
+    
+    Tree tree = {get_program(tokens), 0};
+
+    free(tokens); // Remember that char * type values in nodes are not free yet
+
+    graphic_dump(&tree);
+
+    tree_destructor(&tree);
 
     printf("Frontend!");
 
