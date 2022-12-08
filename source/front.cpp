@@ -19,8 +19,6 @@ int main() {
 
     Node *tokens = parse_symbols(symbols, size, &size);
 
-    print_tokens(tokens);
-
     free(symbols);
     
     Tree tree = {get_program(tokens), 0};

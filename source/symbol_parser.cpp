@@ -8,8 +8,8 @@
 
 
 
-#define CASE_TOKEN_TYPE(token_type) case token_type: token -> type = TYPE_##token_type; ptr++; break
-#define CASE_TOKEN_OP(token_op) case token_op: token -> type = TYPE_OP; token -> value.op = OP_##token_op; ptr++; break
+#define CASE_TOKEN_TYPE(token_type) case SHAPE_##token_type: token -> type = TYPE_##token_type; ptr++; break
+#define CASE_TOKEN_OP(token_op) case SHAPE_##token_op: token -> type = TYPE_OP; token -> value.op = OP_##token_op; ptr++; break
 
 Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
     assert(symbols && "Can't parse null symbols!");
@@ -27,13 +27,16 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
             CASE_TOKEN_TYPE(IF);
             CASE_TOKEN_TYPE(WHILE);
             CASE_TOKEN_TYPE(NVAR);
+            CASE_TOKEN_TYPE(DEF);
             CASE_TOKEN_TYPE(SEQ);
 
-            case BRACKET_BEGIN: token -> type = TYPE_BRACKET; token -> value.op = 1; ptr++; break;
-            case BRACKET_END:   token -> type = TYPE_BRACKET; token -> value.op = 0; ptr++; break;
+            case SHAPE_CONTINUE: token -> type = TYPE_SEQ; break;
 
-            case BLOCK_BEGIN: token -> type = TYPE_BLOCK; token -> value.op = 1; ptr++; break;
-            case BLOCK_END:   token -> type = TYPE_BLOCK; token -> value.op = 0; ptr++; break;
+            case SHAPE_BRACKET_BEGIN: token -> type = TYPE_BRACKET; token -> value.op = 1; ptr++; break;
+            case SHAPE_BRACKET_END:   token -> type = TYPE_BRACKET; token -> value.op = 0; ptr++; break;
+
+            case SHAPE_BLOCK_BEGIN: token -> type = TYPE_BLOCK; token -> value.op = 1; ptr++; break;
+            case SHAPE_BLOCK_END:   token -> type = TYPE_BLOCK; token -> value.op = 0; ptr++; break;
             
             CASE_TOKEN_OP(ADD);
             CASE_TOKEN_OP(SUB);
@@ -44,7 +47,16 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
             CASE_TOKEN_OP(OR);
             CASE_TOKEN_OP(NOT);
 
+            CASE_TOKEN_OP(EQ);
+            CASE_TOKEN_OP(NEQ);
+            CASE_TOKEN_OP(GRE);
+            CASE_TOKEN_OP(LES);
+            CASE_TOKEN_OP(GEQ);
+            CASE_TOKEN_OP(LEQ);
+
             CASE_TOKEN_OP(ASS);
+
+            case SHAPE_DOT: assert(0 && "Single dot!");
 
             case TERMINATOR: token -> type = TYPE_ESC; break; // Escape token
 
@@ -55,7 +67,7 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
                     for(; to_digit(ptr -> shape) != -1; ptr++)
                         token -> value.dbl = token -> value.dbl * 10 + to_digit(ptr -> shape);
                         
-                    if ((ptr -> shape & SHAPE_BTIMASK) == DOT) {
+                    if ((ptr -> shape & SHAPE_BTIMASK) == SHAPE_DOT) {
                         int point = 1;
 
                         ptr++; // skip dot symbol
@@ -103,17 +115,17 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
 
 int to_digit(unsigned int shape) {
     switch (shape & SHAPE_BTIMASK) {
-        case ZERO:      return 0;
-        case ONE:       return 1;
-        case TWO:       return 2;
-        case THREE:     return 3;
-        case FOUR:      return 4;
-        case FIVE:      return 5;
-        case SIX:       return 6;
-        case SEVEN:     return 7;
-        case EIGHT:     return 8;
-        case NINE:      return 9;
-        default:        return -1;
+        case SHAPE_ZERO:      return 0;
+        case SHAPE_ONE:       return 1;
+        case SHAPE_TWO:       return 2;
+        case SHAPE_THREE:     return 3;
+        case SHAPE_FOUR:      return 4;
+        case SHAPE_FIVE:      return 5;
+        case SHAPE_SIX:       return 6;
+        case SHAPE_SEVEN:     return 7;
+        case SHAPE_EIGHT:     return 8;
+        case SHAPE_NINE:      return 9;
+        default:              return -1;
     }
 }
 
@@ -122,33 +134,41 @@ int to_digit(unsigned int shape) {
 
 int is_reserved_shape(unsigned int shape) {
     switch (shape & SHAPE_BTIMASK) {
-        RETURN_ONE(ZERO)
-        RETURN_ONE(ONE)
-        RETURN_ONE(TWO)
-        RETURN_ONE(THREE)
-        RETURN_ONE(FOUR)
-        RETURN_ONE(FIVE)
-        RETURN_ONE(SIX)
-        RETURN_ONE(SEVEN)
-        RETURN_ONE(EIGHT)
-        RETURN_ONE(NINE)
-        RETURN_ONE(SEQ)
-        RETURN_ONE(BLOCK_BEGIN)
-        RETURN_ONE(BLOCK_END)
-        RETURN_ONE(BRACKET_BEGIN)
-        RETURN_ONE(BRACKET_END)
-        RETURN_ONE(IF)
-        RETURN_ONE(WHILE)
-        RETURN_ONE(NVAR)
-        RETURN_ONE(ADD)
-        RETURN_ONE(SUB)
-        RETURN_ONE(MUL)
-        RETURN_ONE(DIV)
-        RETURN_ONE(AND)
-        RETURN_ONE(OR)
-        RETURN_ONE(NOT)
-        RETURN_ONE(ASS)
-        RETURN_ONE(DOT)
+        RETURN_ONE(SHAPE_ZERO)
+        RETURN_ONE(SHAPE_ONE)
+        RETURN_ONE(SHAPE_TWO)
+        RETURN_ONE(SHAPE_THREE)
+        RETURN_ONE(SHAPE_FOUR)
+        RETURN_ONE(SHAPE_FIVE)
+        RETURN_ONE(SHAPE_SIX)
+        RETURN_ONE(SHAPE_SEVEN)
+        RETURN_ONE(SHAPE_EIGHT)
+        RETURN_ONE(SHAPE_NINE)
+        RETURN_ONE(SHAPE_SEQ)
+        RETURN_ONE(SHAPE_CONTINUE)
+        RETURN_ONE(SHAPE_BLOCK_BEGIN)
+        RETURN_ONE(SHAPE_BLOCK_END)
+        RETURN_ONE(SHAPE_BRACKET_BEGIN)
+        RETURN_ONE(SHAPE_BRACKET_END)
+        RETURN_ONE(SHAPE_IF)
+        RETURN_ONE(SHAPE_WHILE)
+        RETURN_ONE(SHAPE_NVAR)
+        RETURN_ONE(SHAPE_DEF)
+        RETURN_ONE(SHAPE_ADD)
+        RETURN_ONE(SHAPE_SUB)
+        RETURN_ONE(SHAPE_MUL)
+        RETURN_ONE(SHAPE_DIV)
+        RETURN_ONE(SHAPE_AND)
+        RETURN_ONE(SHAPE_OR)
+        RETURN_ONE(SHAPE_NOT)
+        RETURN_ONE(SHAPE_ASS)
+        RETURN_ONE(SHAPE_DOT)
+        RETURN_ONE(SHAPE_EQ)
+        RETURN_ONE(SHAPE_NEQ)
+        RETURN_ONE(SHAPE_GRE)
+        RETURN_ONE(SHAPE_LES)
+        RETURN_ONE(SHAPE_GEQ)
+        RETURN_ONE(SHAPE_LEQ)
         RETURN_ONE(TERMINATOR)
         default: return 0;
     }
@@ -166,6 +186,7 @@ void print_tokens(const Node *tokens) {
             case TYPE_NUM: printf("%lg", tokens -> value.dbl); break;
             case TYPE_VAR: printf("%s", tokens -> value.var); break;
             case TYPE_BLOCK:  printf("%i", tokens -> value.op); break;
+            case TYPE_BRACKET:  printf("%i", tokens -> value.op); break;
             default: break;
         }
 
