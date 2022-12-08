@@ -13,7 +13,13 @@ typedef enum {
     OP_AND,
     OP_OR,
     OP_NOT,
-    OP_ASS
+    OP_ASS,
+    OP_EQ,
+    OP_NEQ,
+    OP_GRE,
+    OP_LES,
+    OP_GEQ,
+    OP_LEQ
 } OPERATORS;
 
 

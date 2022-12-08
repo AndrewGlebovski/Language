@@ -9,7 +9,7 @@
 
 
 int main() {
-    Image img = read_image("debug/Example.png");
+    Image img = read_image("debug/ConditionExample.png");
 
     int size = 0;    
 

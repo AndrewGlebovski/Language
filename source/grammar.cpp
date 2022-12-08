@@ -56,6 +56,9 @@ Node *get_statement(Node **s) {
         value -> left = get_ident(s);
 
         value -> left -> type = TYPE_NVAR;
+
+        assert(IS_TYPE(SEQ) && "No ; after statement!");
+        *s += 1;
     }
     else if (IS_TYPE(VAR)) {
         Node *var = get_ident(s);
@@ -68,6 +71,9 @@ Node *get_statement(Node **s) {
         assert(exp && "No expression after assign!");
 
         value -> left = create_node(TYPE_OP, {OP_ASS}, var, exp);
+
+        assert(IS_TYPE(SEQ) && "No ; after statement!");
+        *s += 1;
     }
     else if (IS_TYPE(BLOCK) && (*s) -> value.op == 1) {
         value -> left = create_node(TYPE_BLOCK, {0});
@@ -78,14 +84,39 @@ Node *get_statement(Node **s) {
         assert(IS_TYPE(BLOCK) && (*s) -> value.op == 0 && "No closing bracket in block!");
         *s += 1;
     }
+    else if (IS_TYPE(IF)) {
+        value -> left = create_node(TYPE_IF, {0});
+        *s += 1;
+
+        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in if!");
+        *s += 1;
+
+        value -> left -> left = get_condition(s);
+
+        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in if!");
+        *s += 1;
+
+        value -> left -> right = get_statement(s);
+    }
+    else if (IS_TYPE(WHILE)) {
+        value -> left = create_node(TYPE_WHILE, {0});
+        *s += 1;
+
+        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in if!");
+        *s += 1;
+
+        value -> left -> left = get_condition(s);
+
+        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in if!");
+        *s += 1;
+
+        value -> left -> right = get_statement(s);
+    }
     else {
         free(value);
 
         value = nullptr;
     }
-
-    assert(IS_TYPE(SEQ) && "No ; after statement!");
-    *s += 1;
 
     return value;
 }
@@ -99,6 +130,27 @@ Node *get_ident(Node **s) {
     *s += 1;
 
     return value;
+}
+
+
+Node *get_condition(Node **s) {
+    Node *value = get_expression(s);
+
+    if (IS_TYPE(OP)) {
+        Node *op = copy_node(*s);
+
+        *s += 1;
+        Node *tmp = get_expression(s);
+
+        op -> left = value, op -> right = tmp;
+
+        return op;
+    }
+    else {
+        Node *op = create_node(TYPE_OP, {OP_NEQ}, value, create_node(TYPE_NUM, {0}));
+
+        return op;
+    }
 }
 
 

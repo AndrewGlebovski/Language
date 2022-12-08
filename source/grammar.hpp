@@ -3,9 +3,13 @@
 program ::= statement '\0'
 
 statement ::=
-    'var' ident
-    | ident '=' expression
+    'var' ident ';'
+    | ident '=' expression ';'
     | 'begin' {statement ';'} 'end'
+    | 'if' '(' condition ')' statement
+    | 'while' '(' condition ')' statement
+
+condition ::= expression {['==''!=''>''<''>=''<='] expression}?
 
 expression ::= term {['+''-'] term}
 
@@ -34,6 +38,8 @@ Node *get_block_value(Node **s);
 Node *get_program(Node *str);
 
 Node *get_statement(Node **s);
+
+Node *get_condition(Node **s);
 
 Node *get_expression(Node **s);
 

@@ -168,6 +168,12 @@ const char *op2str(int op) {
         case OPERATORS::OP_OR:  return "&";
         case OPERATORS::OP_NOT: return "!";
         case OPERATORS::OP_ASS: return "=";
+        case OPERATORS::OP_EQ:  return "==";
+        case OPERATORS::OP_NEQ: return "!=";
+        case OPERATORS::OP_GRE: return ">";
+        case OPERATORS::OP_LES: return "<";
+        case OPERATORS::OP_GEQ: return ">=";
+        case OPERATORS::OP_LEQ: return "<=";
         default: return "#";
     }
 }
