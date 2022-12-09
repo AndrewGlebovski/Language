@@ -9,6 +9,7 @@ statement ::=
     | 'begin' {statement ';'} 'end'
     | 'if' '(' condition ')' statement
     | 'while' '(' condition ')' statement
+    | 'return' expression ';'        Это очень серьезное допущение. Основной блок придется сделать функцией, чтобы стек вызовов не оказался пустым
 
 condition ::= expression {['==''!=''>''<''>=''<='] expression}?
 

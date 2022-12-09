@@ -52,7 +52,7 @@ Node *get_function_parameters(Node **s) {
     
     assert(value && "Wrong parameter name in function declaration!");
 
-    if (IS_TYPE(SEQ)) {
+    if (IS_TYPE(CONT)) {
         *s += 1;
 
         value -> right = get_function_parameters(s);
@@ -93,6 +93,16 @@ Node *get_statement(Node **s) {
         *s += 1;
 
         value -> left -> right = get_statement(s);
+    }
+    else if (IS_TYPE(RET)) {
+        *s += 1;
+
+        value -> left = create_node(TYPE_RET, {0}, get_expression(s));
+
+        assert(value -> left -> left && "No expression after return!");
+
+        assert(IS_TYPE(SEQ) && "No ; after statement!");
+        *s += 1;
     }
     else if (IS_TYPE(VAR)) {
         Node *var = get_ident(s);
@@ -268,7 +278,7 @@ Node *get_function_arguments(Node **s) {
     
     assert(value -> left && "Wrong argument in function call!");
 
-    if (IS_TYPE(SEQ)) {
+    if (IS_TYPE(CONT)) {
         *s += 1;
 
         value -> right = get_function_arguments(s);

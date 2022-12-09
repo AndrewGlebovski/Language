@@ -149,6 +149,8 @@ void print_node(Node *node, FILE *stream) {
         case TYPE_PAR:      fprintf(stream, "PAR"); break;
         case TYPE_SEQ:      fprintf(stream, ";"); break;
         case TYPE_BLOCK:    fprintf(stream, "BLOCK"); break;
+        case TYPE_RET:      fprintf(stream, "RETURN"); break;
+        case TYPE_CONT:     fprintf(stream, ","); break;
         default:            fprintf(stream, "@");
     }
 
@@ -211,6 +213,8 @@ void write_record(FILE *file, Node *node) {
         case TYPE_PAR:      fprintf(file, "FUNC PAR | <value> %s", node -> value.var); break;
         case TYPE_SEQ:      fprintf(file, "SEQ"); break;
         case TYPE_BLOCK:    fprintf(file, "BLOCK"); break;
+        case TYPE_RET:      fprintf(file, "RETURN"); break;
+        case TYPE_CONT:     fprintf(file, ","); break;
         default:            fprintf(file, "@");
     }
 

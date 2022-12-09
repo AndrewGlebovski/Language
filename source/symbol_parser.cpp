@@ -29,8 +29,8 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
             CASE_TOKEN_TYPE(NVAR);
             CASE_TOKEN_TYPE(DEF);
             CASE_TOKEN_TYPE(SEQ);
-
-            case SHAPE_CONTINUE: token -> type = TYPE_SEQ; ptr++; break;
+            CASE_TOKEN_TYPE(CONT);
+            CASE_TOKEN_TYPE(RET);
 
             case SHAPE_BRACKET_BEGIN: token -> type = TYPE_BRACKET; token -> value.op = 1; ptr++; break;
             case SHAPE_BRACKET_END:   token -> type = TYPE_BRACKET; token -> value.op = 0; ptr++; break;
@@ -145,7 +145,8 @@ int is_reserved_shape(unsigned int shape) {
         RETURN_ONE(SHAPE_EIGHT)
         RETURN_ONE(SHAPE_NINE)
         RETURN_ONE(SHAPE_SEQ)
-        RETURN_ONE(SHAPE_CONTINUE)
+        RETURN_ONE(SHAPE_CONT)
+        RETURN_ONE(SHAPE_RET)
         RETURN_ONE(SHAPE_BLOCK_BEGIN)
         RETURN_ONE(SHAPE_BLOCK_END)
         RETURN_ONE(SHAPE_BRACKET_BEGIN)

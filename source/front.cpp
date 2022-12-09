@@ -9,17 +9,17 @@
 
 
 int main() {
-    Image img = read_image("debug/exp.png");
+    Image img = read_image("debug/FunctionExample.png");
 
     int size = 0;    
 
     Symbol *symbols = parse_image(&img, &size);
 
     free_image(&img);
-
+    
     Node *tokens = parse_symbols(symbols, size, &size);
 
-    print_tokens(tokens);
+    // print_tokens(tokens);
 
     free(symbols);
     
@@ -30,7 +30,7 @@ int main() {
     graphic_dump(&tree);
 
     tree_destructor(&tree);
-
+    
     printf("Frontend!");
 
     return 0;
