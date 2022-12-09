@@ -142,16 +142,16 @@ void print_node(Node *node, FILE *stream) {
         case TYPE_VAR:      fprintf(stream, "%s", node -> value.var); break;
         case TYPE_IF:       fprintf(stream, "IF"); break;
         case TYPE_WHILE:    fprintf(stream, "WHILE"); break;
-        case TYPE_CALL:     fprintf(stream, "FUNC CALL"); break;
-        case TYPE_DEF:      fprintf(stream, "FUNC DEF"); break;
-        case TYPE_NVAR:     fprintf(stream, "NEW VAR"); break;
+        case TYPE_CALL:     fprintf(stream, "CALL"); break;
+        case TYPE_DEF:      fprintf(stream, "DEF"); break;
+        case TYPE_NVAR:     fprintf(stream, "NVAR"); break;
         case TYPE_ARG:      fprintf(stream, "ARG"); break;
         case TYPE_PAR:      fprintf(stream, "PAR"); break;
         case TYPE_SEQ:      fprintf(stream, ";"); break;
         case TYPE_BLOCK:    fprintf(stream, "BLOCK"); break;
-        case TYPE_RET:      fprintf(stream, "RETURN"); break;
+        case TYPE_RET:      fprintf(stream, "RET"); break;
         case TYPE_CONT:     fprintf(stream, ","); break;
-        default:            fprintf(stream, "@");
+        default:            fprintf(stream, "###");
     }
 
     if (node -> right) print_node(node -> right, stream);
@@ -162,21 +162,21 @@ void print_node(Node *node, FILE *stream) {
 
 const char *op2str(int op) {
     switch(op) {
-        case OPERATORS::OP_ADD: return "+";
-        case OPERATORS::OP_SUB: return "-";
-        case OPERATORS::OP_MUL: return "*";
-        case OPERATORS::OP_DIV: return "/";
-        case OPERATORS::OP_AND: return "&";
-        case OPERATORS::OP_OR:  return "&";
-        case OPERATORS::OP_NOT: return "!";
-        case OPERATORS::OP_ASS: return "=";
-        case OPERATORS::OP_EQ:  return "==";
-        case OPERATORS::OP_NEQ: return "!=";
-        case OPERATORS::OP_GRE: return "\\>";
-        case OPERATORS::OP_LES: return "\\<";
-        case OPERATORS::OP_GEQ: return "\\>=";
-        case OPERATORS::OP_LEQ: return "\\<=";
-        default: return "#";
+        case OPERATORS::OP_ADD: return "ADD";
+        case OPERATORS::OP_SUB: return "SUB";
+        case OPERATORS::OP_MUL: return "MUL";
+        case OPERATORS::OP_DIV: return "DIV";
+        case OPERATORS::OP_AND: return "AND";
+        case OPERATORS::OP_OR:  return "OR";
+        case OPERATORS::OP_NOT: return "NOT";
+        case OPERATORS::OP_ASS: return "ASS";
+        case OPERATORS::OP_EQ:  return "EQ";
+        case OPERATORS::OP_NEQ: return "NEQ";
+        case OPERATORS::OP_GRE: return "GRE";
+        case OPERATORS::OP_LES: return "LES";
+        case OPERATORS::OP_GEQ: return "GEQ";
+        case OPERATORS::OP_LEQ: return "LEQ";
+        default: return "###";
     }
 }
 

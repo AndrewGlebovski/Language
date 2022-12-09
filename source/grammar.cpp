@@ -296,7 +296,7 @@ Node *get_function(Node **s) {
 
         value -> type = TYPE_CALL; 
 
-        if (!IS_TYPE(BRACKET)) value -> right = get_function_arguments(s);
+        if (!IS_TYPE(BRACKET)) value -> left = get_function_arguments(s);
 
         assert(IS_TYPE(BRACKET) && "No closing bracket in function call!");
         *s += 1;
