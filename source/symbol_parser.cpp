@@ -30,7 +30,7 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
             CASE_TOKEN_TYPE(DEF);
             CASE_TOKEN_TYPE(SEQ);
 
-            case SHAPE_CONTINUE: token -> type = TYPE_SEQ; break;
+            case SHAPE_CONTINUE: token -> type = TYPE_SEQ; ptr++; break;
 
             case SHAPE_BRACKET_BEGIN: token -> type = TYPE_BRACKET; token -> value.op = 1; ptr++; break;
             case SHAPE_BRACKET_END:   token -> type = TYPE_BRACKET; token -> value.op = 0; ptr++; break;

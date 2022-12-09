@@ -47,6 +47,23 @@ Node *get_block_value(Node **s) {
 }
 
 
+Node *get_function_parameters(Node **s) {
+    Node *value = get_ident(s);
+    
+    assert(value && "Wrong parameter name in function declaration!");
+
+    if (IS_TYPE(SEQ)) {
+        *s += 1;
+
+        value -> right = get_function_parameters(s);
+    }
+
+    value -> type = TYPE_PAR;
+
+    return value;
+}
+
+
 Node *get_statement(Node **s) {
     Node *value = create_node(TYPE_SEQ, {0});
 
@@ -59,6 +76,23 @@ Node *get_statement(Node **s) {
 
         assert(IS_TYPE(SEQ) && "No ; after statement!");
         *s += 1;
+    }
+    else if (IS_TYPE(DEF)) {
+        *s += 1;
+
+        value -> left = get_ident(s);
+
+        value -> left -> type = TYPE_DEF;
+
+        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in function declaration!");
+        *s += 1;
+
+        if (!IS_TYPE(BRACKET)) value -> left -> left = get_function_parameters(s);
+
+        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in function declaration!");
+        *s += 1;
+
+        value -> left -> right = get_statement(s);
     }
     else if (IS_TYPE(VAR)) {
         Node *var = get_ident(s);
@@ -112,9 +146,8 @@ Node *get_statement(Node **s) {
 
         value -> left -> right = get_statement(s);
     }
-    else {
+    else { // Все еще нужна проверка если конструкция вида ; или expression;
         free(value);
-
         value = nullptr;
     }
 
@@ -221,12 +254,45 @@ Node *get_factor(Node **s) {
 
         return value;
     }
-    else if ((value = get_ident(s))) {
+    else if ((value = get_function(s))) {
         return value;
     }
     else {
         return get_number(s);
     }
+}
+
+
+Node *get_function_arguments(Node **s) {
+    Node *value = create_node(TYPE_ARG, {0}, get_expression(s), nullptr);
+    
+    assert(value -> left && "Wrong argument in function call!");
+
+    if (IS_TYPE(SEQ)) {
+        *s += 1;
+
+        value -> right = get_function_arguments(s);
+    }
+
+    return value;
+}
+
+
+Node *get_function(Node **s) {
+    Node *value = get_ident(s);
+
+    if (IS_TYPE(BRACKET)) {
+        *s += 1;
+
+        value -> type = TYPE_CALL; 
+
+        if (!IS_TYPE(BRACKET)) value -> right = get_function_arguments(s);
+
+        assert(IS_TYPE(BRACKET) && "No closing bracket in function call!");
+        *s += 1;
+    }
+
+    return value;
 }
 
 

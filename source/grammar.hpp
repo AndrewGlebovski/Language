@@ -4,6 +4,7 @@ program ::= statement '\0'
 
 statement ::=
     'var' ident ';'
+    | 'def' ident '(' {ident}? {',' ident} ')' statement
     | ident '=' expression ';'
     | 'begin' {statement ';'} 'end'
     | 'if' '(' condition ')' statement
@@ -17,7 +18,9 @@ term ::= unary {['*''/'] unary}
 
 unary ::= '-' factor | factor
 
-factor ::= '(' expression ')' | ident | number
+factor ::= '(' expression ')' | function | number
+
+function ::= ident | ident '(' {expression}? {',' expression} ')'
 
 ident ::= ['A'-'Z']+
 
@@ -32,6 +35,13 @@ Node *copy_node(const Node *origin);
 
 /// Recursive call for block content
 Node *get_block_value(Node **s);
+
+/// Recursive call for function parameters
+Node *get_function_parameters(Node **s);
+
+/// Recursive call for function arguments
+Node *get_function_arguments(Node **s);
+
 
 // Recursive descent parser
 
@@ -48,6 +58,8 @@ Node *get_term(Node **s);
 Node *get_unary(Node **s);
 
 Node *get_factor(Node **s);
+
+Node *get_function(Node **s);
 
 Node *get_ident(Node **s);
 

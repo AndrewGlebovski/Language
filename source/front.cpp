@@ -9,7 +9,7 @@
 
 
 int main() {
-    Image img = read_image("debug/ConditionExample.png");
+    Image img = read_image("debug/exp.png");
 
     int size = 0;    
 
@@ -18,6 +18,8 @@ int main() {
     free_image(&img);
 
     Node *tokens = parse_symbols(symbols, size, &size);
+
+    print_tokens(tokens);
 
     free(symbols);
     
