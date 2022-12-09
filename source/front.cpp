@@ -75,20 +75,20 @@ void write_node(Node *node, FILE *stream, int shift) {
     PRINT("%*s{", shift, "");
     
     switch (node -> type) {
-        case TYPE_OP:       PRINT("OP, %s", op2str(node -> value.op)); break;
-        case TYPE_NUM:      PRINT("NUM, %lg", node -> value.dbl); break;
-        case TYPE_VAR:      PRINT("VAR, %s", node -> value.var); break;
-        case TYPE_IF:       PRINT("IF"); break;
-        case TYPE_WHILE:    PRINT("WHILE"); break;
-        case TYPE_CALL:     PRINT("CALL, %s", node -> value.var); break;
-        case TYPE_DEF:      PRINT("DEF, %s", node -> value.var); break;
-        case TYPE_NVAR:     PRINT("NVAR, %s", node -> value.var); break;
-        case TYPE_ARG:      PRINT("ARG"); break;
-        case TYPE_PAR:      PRINT("PAR, %s", node -> value.var); break;
-        case TYPE_SEQ:      PRINT("SEQ"); break;
-        case TYPE_BLOCK:    PRINT("BLOCK"); break;
-        case TYPE_RET:      PRINT("RET"); break;
-        default:            PRINT("ERROR"); break;
+        case TYPE_OP:       PRINT("%i, %i",     TYPE_OP, node -> value.op);         break;
+        case TYPE_NUM:      PRINT("%i, %.3lg",  TYPE_NUM, node -> value.dbl);       break;
+        case TYPE_VAR:      PRINT("%i, %s",     TYPE_VAR, node -> value.var);       break;
+        case TYPE_IF:       PRINT("%i, 0",      TYPE_IF);                           break;
+        case TYPE_WHILE:    PRINT("%i, 0",      TYPE_WHILE);                        break;
+        case TYPE_CALL:     PRINT("%i, %s",     TYPE_CALL, node -> value.var);      break;
+        case TYPE_DEF:      PRINT("%i, %s",     TYPE_DEF, node -> value.var);       break;
+        case TYPE_NVAR:     PRINT("%i, %s",     TYPE_NVAR, node -> value.var);      break;
+        case TYPE_ARG:      PRINT("%i, 0",      TYPE_ARG);                          break;
+        case TYPE_PAR:      PRINT("%i, %s",     TYPE_PAR, node -> value.var);       break;
+        case TYPE_SEQ:      PRINT("%i, 0",      TYPE_SEQ);                          break;
+        case TYPE_BLOCK:    PRINT("%i, 0",      TYPE_BLOCK);                        break;
+        case TYPE_RET:      PRINT("%i, 0",      TYPE_RET);                          break;
+        default:            PRINT("%i, 0",      0);                                 break;
     }
 
     if (node -> left) {
