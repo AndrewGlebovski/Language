@@ -116,4 +116,3 @@ void write_node(Node *node, FILE *stream, int shift) {
 }
 
 #undef PRINT
-#undef PRINT

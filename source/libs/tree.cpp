@@ -147,10 +147,10 @@ void print_node(Node *node, FILE *stream) {
         case TYPE_NVAR:     fprintf(stream, "NVAR"); break;
         case TYPE_ARG:      fprintf(stream, "ARG"); break;
         case TYPE_PAR:      fprintf(stream, "PAR"); break;
-        case TYPE_SEQ:      fprintf(stream, ";"); break;
+        case TYPE_SEQ:      fprintf(stream, "SEQ"); break;
         case TYPE_BLOCK:    fprintf(stream, "BLOCK"); break;
         case TYPE_RET:      fprintf(stream, "RET"); break;
-        case TYPE_CONT:     fprintf(stream, ","); break;
+        case TYPE_CONT:     fprintf(stream, "CONT"); break;
         default:            fprintf(stream, "###");
     }
 

@@ -14,7 +14,7 @@ SRC_DIR=source
 LIB_DIR=$(SRC_DIR)/libs
 
 
-all: front
+all: front back
 
 
 # Завершает сборку front.cpp
@@ -22,8 +22,18 @@ front: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_parser
 	$(COMPILER) $^ -o front.exe
 
 
+# Завершает сборку back.cpp
+back: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back tree text))
+	$(COMPILER) $^ -o back.exe
+
+
 # Предварительная сборка front.cpp
 $(BIN_DIR)/front.o: $(addprefix $(SRC_DIR)/, front.cpp symbol_parser.hpp image_parser.hpp grammar.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+	$(COMPILER) $(FLAGS) -c $< -o $@
+
+
+# Предварительная сборка back.cpp
+$(BIN_DIR)/back.o: $(addprefix $(SRC_DIR)/, back.cpp) $(addprefix $(LIB_DIR)/, tree.hpp text.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
