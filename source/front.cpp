@@ -9,8 +9,13 @@
 
 
 
-int main() {
-    Image img = read_image("debug/FunctionExample.png");
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        printf("Incorrect command line argument!\n");
+        return 1;
+    }
+
+    Image img = read_image(argv[1]);
 
     int size = 0;    
 
@@ -30,7 +35,7 @@ int main() {
 
     graphic_dump(&tree);
 
-    write_tree(&tree, "debug/output.txt");
+    write_tree(&tree, "output.txt");
 
     tree_destructor(&tree);
     
