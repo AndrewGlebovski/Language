@@ -18,22 +18,22 @@ all: front back
 
 
 # Завершает сборку front.cpp
-front: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_parser grammar tree))
+front: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_parser grammar input-output tree text))
 	$(COMPILER) $^ -o front.exe
 
 
 # Завершает сборку back.cpp
-back: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back tree text))
+back: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back input-output tree text))
 	$(COMPILER) $^ -o back.exe
 
 
 # Предварительная сборка front.cpp
-$(BIN_DIR)/front.o: $(addprefix $(SRC_DIR)/, front.cpp symbol_parser.hpp image_parser.hpp grammar.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+$(BIN_DIR)/front.o: $(addprefix $(SRC_DIR)/, front.cpp symbol_parser.hpp image_parser.hpp grammar.hpp input-output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
 # Предварительная сборка back.cpp
-$(BIN_DIR)/back.o: $(addprefix $(SRC_DIR)/, back.cpp) $(addprefix $(LIB_DIR)/, tree.hpp text.hpp)
+$(BIN_DIR)/back.o: $(addprefix $(SRC_DIR)/, back.cpp input-output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
@@ -49,6 +49,11 @@ $(BIN_DIR)/symbol_parser.o: $(addprefix $(SRC_DIR)/, symbol_parser.cpp symbol_pa
 
 # Предварительная сборка grammar.cpp
 $(BIN_DIR)/grammar.o: $(addprefix $(SRC_DIR)/, grammar.cpp grammar.hpp symbol_parser.hpp image_parser.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+	$(COMPILER) $(FLAGS) -c $< -o $@
+
+
+# Предварительная сборка input-output.cpp
+$(BIN_DIR)/input-output.o: $(addprefix $(SRC_DIR)/, input-output.cpp input-output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp text.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
