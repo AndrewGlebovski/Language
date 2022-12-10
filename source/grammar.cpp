@@ -120,10 +120,10 @@ Node *get_statement(Node **s) {
         *s += 1;
     }
     else if (IS_TYPE(BLOCK) && (*s) -> value.op == 1) {
-        value -> left = create_node(TYPE_BLOCK, {0});
         *s += 1;
 
-        value -> left -> right = get_block_value(s);
+        free(value);
+        value = get_block_value(s);
 
         assert(IS_TYPE(BLOCK) && (*s) -> value.op == 0 && "No closing bracket in block!");
         *s += 1;

@@ -11,14 +11,19 @@
 do                                      \
 {                                       \
     if (!(condition)) {                 \
-        printf("[%-p] ", node);          \
+        printf("[%-p] ", node);         \
         printf(__VA_ARGS__);            \
         abort();                        \
     }                                   \
 } while (0)
 
 
-#define PRINT(...) fprintf(file, __VA_ARGS__)
+#define PRINT(...)                      \
+do {                                    \
+    fprintf(file, __VA_ARGS__);         \
+    fputc('\n', file);                  \
+    line++;                             \
+} while(0)
 
 
 /// List of variables in program
@@ -50,9 +55,6 @@ Variable *find_variable(size_t hash);
 /// Calculates hash sum of the string
 size_t string_hash(const char *str);
 
-/// Prints '\n' to file and increments line
-void new_line(FILE *file);
-
 /// Prints condition result to file
 void print_cond(const char *cond_op, FILE *file);
 
@@ -63,11 +65,13 @@ int print_program(const Tree *tree, const char *filename) {
     FILE *file = fopen(filename, "w");
 
     vars = (Variable *) calloc(64, sizeof(Variable));
-    line = 0;
+    line = 1;
 
     read_sequence(tree -> root, file);
 
     free(vars);
+
+    PRINT("HLT");
 
     fclose(file);
 
@@ -85,7 +89,6 @@ void read_sequence(const Node *node, FILE *file) {
     switch (node -> left -> type) {
         case TYPE_NVAR: set_new_var(node -> left); break;
         case TYPE_OP: print_assign(node -> left, file); break;
-        case TYPE_BLOCK: read_sequence(node -> left -> right, file); break;
         default: ASSERT(0, "Sequence left child has type %i!", node -> left -> type);
     }
 
@@ -110,8 +113,6 @@ void print_exp(const Node *node, FILE *file) {
     switch(node -> type) {
         case TYPE_NUM: {
             PRINT("PUSH %.3lg", node -> value.dbl);
-            new_line(file);
-
             break;
         }
         case TYPE_VAR: {
@@ -120,14 +121,13 @@ void print_exp(const Node *node, FILE *file) {
             ASSERT(var, "Variable %s is not declarated in the current scope!", node -> value.var);
 
             PRINT("PUSH [%i]", var -> index);
-            new_line(file);
-
             break;
         }
         case TYPE_OP: {
             print_exp(node -> left, file);
             print_exp(node -> right, file);
 
+            PRINT("# Expression node [%-p]", node);
             switch (node -> value.op) {
                 case OP_ADD: PRINT("ADD"); break;
                 case OP_SUB: PRINT("SUB"); break;
@@ -146,8 +146,6 @@ void print_exp(const Node *node, FILE *file) {
         }
         default: ASSERT(0, "Node has type %i and it's not expression type!", node -> type);
     }
-
-    new_line(file);
 }
 
 
@@ -156,12 +154,12 @@ void print_assign(const Node *node, FILE *file) {
     print_exp(node -> right, file);
 
     ASSERT(node -> left, "No variable to assign");
-    Variable *var = find_variable(string_hash(node -> value.var));
+    Variable *var = find_variable(string_hash(node -> left -> value.var));
 
-    ASSERT(var, "Variable %s is not declarated in the current scope!", node -> value.var);
+    ASSERT(var, "Variable %s is not declarated in the current scope!", node -> left -> value.var);
 
+    PRINT("# Assign node [%-p]", node);
     PRINT("POP [%i]", var -> index);
-    new_line(file);
 }
 
 
@@ -189,30 +187,12 @@ size_t gnu_hash(const void *ptr, size_t size) {
 }
 
 
-void new_line(FILE *file) {
-    line++;
-    PRINT("\n");
-}
-
-
 void print_cond(const char *cond_op, FILE *file) {
     PRINT("PUSH 1");
-    new_line(file);
-
     PRINT("POP RAX");
-    new_line(file);
-
     PRINT("%s COND_%i", cond_op, line + 1);
-    new_line(file);
-
     PRINT("PUSH 0");
-    new_line(file);
     PRINT("POP RAX");
-    new_line(file);
-
     PRINT("COND_%i:", line + 1);
-    new_line(file);
-
     PRINT("PUSH RAX");
-    new_line(file);
 }
