@@ -9,14 +9,12 @@
 
 
 
-#define Call(left, right) create_node(TYPE_CALL, {0}, left, right)
-#define Def(left, right) create_node(TYPE_DEF, {0}, left, right)
-#define Arg(left, right) create_node(TYPE_ARG, {0}, left, right)
-#define Par(left, right) create_node(TYPE_PAR, {0}, left, right)
-#define Seq(left, right) create_node(TYPE_SEQ, {0}, left, right)
-
 #define IS_TYPE(_type) ((*s) -> type == TYPE_##_type)
 #define IS_OP(_op) ((*s) -> type == TYPE_OP && (*s) -> value.op == OP_##_op)
+
+
+/// Increments node pointer
+void next(Node **s);
 
 
 Node *copy_node(const Node *origin) {
@@ -53,7 +51,7 @@ Node *get_function_parameters(Node **s) {
     assert(value && "Wrong parameter name in function declaration!");
 
     if (IS_TYPE(CONT)) {
-        *s += 1;
+        next(s);
 
         value -> right = get_function_parameters(s);
     }
@@ -67,98 +65,116 @@ Node *get_function_parameters(Node **s) {
 Node *get_statement(Node **s) {
     Node *value = create_node(TYPE_SEQ, {0});
 
-    if (IS_TYPE(NVAR)) {
-        *s += 1;
+    switch((*s) -> type) {
+        case TYPE_NVAR: {
+            next(s);
 
-        value -> left = get_ident(s);
+            value -> left = get_ident(s);
 
-        value -> left -> type = TYPE_NVAR;
+            value -> left -> type = TYPE_NVAR;
 
-        assert(IS_TYPE(SEQ) && "No ; after statement!");
-        *s += 1;
-    }
-    else if (IS_TYPE(DEF)) {
-        *s += 1;
+            assert(IS_TYPE(SEQ) && "No ; after statement!");
+            next(s);
 
-        value -> left = get_ident(s);
+            break;
+        }
+        case TYPE_DEF: {
+            next(s);
 
-        value -> left -> type = TYPE_DEF;
+            value -> left = get_ident(s);
 
-        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in function declaration!");
-        *s += 1;
+            value -> left -> type = TYPE_DEF;
 
-        if (!IS_TYPE(BRACKET)) value -> left -> left = get_function_parameters(s);
+            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in function declaration!");
+            next(s);
 
-        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in function declaration!");
-        *s += 1;
+            if (!IS_TYPE(BRACKET)) value -> left -> left = get_function_parameters(s);
 
-        value -> left -> right = get_statement(s);
-    }
-    else if (IS_TYPE(RET)) {
-        *s += 1;
+            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in function declaration!");
+            next(s);
 
-        value -> left = create_node(TYPE_RET, {0}, get_expression(s));
+            value -> left -> right = get_statement(s);
 
-        assert(value -> left -> left && "No expression after return!");
+            break;
+        }
+        case TYPE_RET: {
+            next(s);
 
-        assert(IS_TYPE(SEQ) && "No ; after statement!");
-        *s += 1;
-    }
-    else if (IS_TYPE(VAR)) {
-        Node *var = get_ident(s);
+            value -> left = create_node(TYPE_RET, {0}, get_expression(s));
 
-        assert(IS_OP(ASS) && "No assign operator after variable!");
-        *s += 1;
+            assert(value -> left -> left && "No expression after return!");
 
-        Node *exp = get_expression(s);
+            assert(IS_TYPE(SEQ) && "No ; after statement!");
+            next(s);
 
-        assert(exp && "No expression after assign!");
+            break;
+        }
+        case TYPE_VAR: {
+            Node *var = get_ident(s);
 
-        value -> left = create_node(TYPE_OP, {OP_ASS}, var, exp);
+            assert(IS_OP(ASS) && "No assign operator after variable!");
+            next(s);
 
-        assert(IS_TYPE(SEQ) && "No ; after statement!");
-        *s += 1;
-    }
-    else if (IS_TYPE(BLOCK) && (*s) -> value.op == 1) {
-        *s += 1;
+            Node *exp = get_expression(s);
 
-        free(value);
-        value = get_block_value(s);
+            assert(exp && "No expression after assign!");
 
-        assert(IS_TYPE(BLOCK) && (*s) -> value.op == 0 && "No closing bracket in block!");
-        *s += 1;
-    }
-    else if (IS_TYPE(IF)) {
-        value -> left = create_node(TYPE_IF, {0});
-        *s += 1;
+            value -> left = create_node(TYPE_OP, {OP_ASS}, var, exp);
 
-        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in if!");
-        *s += 1;
+            assert(IS_TYPE(SEQ) && "No ; after statement!");
+            next(s);
 
-        value -> left -> left = get_condition(s);
+            break;
+        }
+        case TYPE_BLOCK: {
+            if ((*s) -> value.op == 1) {
+                next(s);
 
-        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in if!");
-        *s += 1;
+                free(value);
+                value = get_block_value(s);
 
-        value -> left -> right = get_statement(s);
-    }
-    else if (IS_TYPE(WHILE)) {
-        value -> left = create_node(TYPE_WHILE, {0});
-        *s += 1;
+                assert(IS_TYPE(BLOCK) && (*s) -> value.op == 0 && "No closing bracket in block!");
+                next(s);
+            }
 
-        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in if!");
-        *s += 1;
+            break;
+        }
+        case TYPE_IF: {
+            value -> left = create_node(TYPE_IF, {0});
+            next(s);
 
-        value -> left -> left = get_condition(s);
+            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in if!");
+            next(s);
 
-        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in if!");
-        *s += 1;
+            value -> left -> left = get_condition(s);
 
-        value -> left -> right = get_statement(s);
-    }
-    else { // Все еще нужна проверка если конструкция вида ; или expression;
-        free(value);
-        value = nullptr;
+            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in if!");
+            next(s);
+
+            value -> left -> right = get_statement(s);
+
+            break;
+        }
+        case TYPE_WHILE: {
+            value -> left = create_node(TYPE_WHILE, {0});
+            next(s);
+
+            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in if!");
+            next(s);
+
+            value -> left -> left = get_condition(s);
+
+            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in if!");
+            next(s);
+
+            value -> left -> right = get_statement(s);
+
+            break;
+        }
+        default: { // Все еще нужна проверка если конструкция вида ; или expression;
+            free(value);
+            value = nullptr;
+        }
     }
 
     return value;
@@ -170,7 +186,7 @@ Node *get_ident(Node **s) {
     
     Node *value = copy_node(*s);
 
-    *s += 1;
+    next(s);
 
     return value;
 }
@@ -181,8 +197,8 @@ Node *get_condition(Node **s) {
 
     if (IS_TYPE(OP)) {
         Node *op = copy_node(*s);
+        next(s);
 
-        *s += 1;
         Node *tmp = get_expression(s);
 
         op -> left = value, op -> right = tmp;
@@ -202,8 +218,8 @@ Node *get_expression(Node **s) {
 
     if (IS_OP(ADD) || IS_OP(SUB)) {
         Node *op = copy_node(*s); 
+        next(s);
 
-        *s += 1;
         Node *tmp = get_expression(s);
 
         op -> left = value, op -> right = tmp;
@@ -221,8 +237,8 @@ Node *get_term(Node **s) {
 
     if (IS_OP(MUL) || IS_OP(DIV)) {
         Node *op = copy_node(*s);
+        next(s);
 
-        *s += 1;
         Node *tmp = get_term(s);
 
         op -> left = value, op -> right = tmp;
@@ -238,8 +254,7 @@ Node *get_term(Node **s) {
 Node *get_unary(Node **s) {
     if (IS_OP(SUB)) {
         Node *op = copy_node(*s);
-
-        *s += 1;
+        next(s);
 
         op -> left = create_node(TYPE_NUM, {0}), op -> right = get_factor(s);
 
@@ -255,12 +270,11 @@ Node *get_factor(Node **s) {
     Node *value = {};
 
     if (IS_TYPE(BRACKET) && (*s) -> value.op == 1) {
-        *s += 1;
+        next(s);
         value = get_expression(s);
 
         assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in expression!");
-
-        *s += 1;
+        next(s);
 
         return value;
     }
@@ -279,7 +293,7 @@ Node *get_function_arguments(Node **s) {
     assert(value -> left && "Wrong argument in function call!");
 
     if (IS_TYPE(CONT)) {
-        *s += 1;
+        next(s);
 
         value -> right = get_function_arguments(s);
     }
@@ -292,14 +306,14 @@ Node *get_function(Node **s) {
     Node *value = get_ident(s);
 
     if (IS_TYPE(BRACKET)) {
-        *s += 1;
+        next(s);
 
         value -> type = TYPE_CALL; 
 
         if (!IS_TYPE(BRACKET)) value -> left = get_function_arguments(s);
 
         assert(IS_TYPE(BRACKET) && "No closing bracket in function call!");
-        *s += 1;
+        next(s);
     }
 
     return value;
@@ -311,7 +325,12 @@ Node *get_number(Node **s) {
 
     Node *value = copy_node(*s);
 
-    *s += 1;
+    next(s);
 
     return value;
+}
+
+
+void next(Node** s) {
+    *s += 1;
 }
