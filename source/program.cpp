@@ -2,8 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "libs/tree.hpp"
+#include "libs/stack.hpp"
 #include "program.hpp"
 
+
+typedef stack_data_t Variable;
 
 
 

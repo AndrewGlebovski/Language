@@ -1,11 +1,3 @@
-/// Contains information about variable
-typedef struct {
-    const char *name = nullptr;         ///< Variable name
-    size_t hash = 0;                    ///< Name hash
-    int index = 0;                      ///< Index in processor RAM
-} Variable;
-
-
 /**
  * \brief Prints program to assembler file
  * \param [in]  tree     Program tree to print
