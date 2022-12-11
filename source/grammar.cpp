@@ -199,9 +199,7 @@ Node *get_condition(Node **s) {
         Node *op = copy_node(*s);
         next(s);
 
-        Node *tmp = get_expression(s);
-
-        op -> left = value, op -> right = tmp;
+        op -> left = value, op -> right = get_expression(s);
 
         return op;
     }
@@ -220,9 +218,7 @@ Node *get_expression(Node **s) {
         Node *op = copy_node(*s); 
         next(s);
 
-        Node *tmp = get_expression(s);
-
-        op -> left = value, op -> right = tmp;
+        op -> left = value, op -> right = get_expression(s);
 
         return op;
     }
@@ -239,9 +235,7 @@ Node *get_term(Node **s) {
         Node *op = copy_node(*s);
         next(s);
 
-        Node *tmp = get_term(s);
-
-        op -> left = value, op -> right = tmp;
+        op -> left = value, op -> right = get_term(s);
 
         return op;
     }

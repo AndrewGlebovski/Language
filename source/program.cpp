@@ -30,20 +30,23 @@ do {                                    \
 Variable *vars = nullptr;
 
 /// Current line index in file
-int line = 0;
+int line = 1;
 
 
 /// Reads sequence type node and prints result to file
 void read_sequence(const Node *node, FILE *file);
 
 /// Add new variable to vars
-void set_new_var(const Node *node);
+void set_new_var(const Node *node, FILE *file);
 
 /// Prints expression to file
 void print_exp(const Node *node, FILE *file);
 
 /// Prints variable assign operation to file
 void print_assign(const Node *node, FILE *file);
+
+/// Prints if operator to file
+void print_if(const Node *node, FILE *file);
 
 /**
  * \brief Finds variable in list by its name hash
@@ -86,17 +89,23 @@ void read_sequence(const Node *node, FILE *file) {
 
     ASSERT(node -> left, "Sequence has no left child!");
 
+    PRINT("# Sequence node [%-p]", node);
+
     switch (node -> left -> type) {
-        case TYPE_NVAR: set_new_var(node -> left); break;
+        case TYPE_NVAR: set_new_var(node -> left, file); break;
         case TYPE_OP: print_assign(node -> left, file); break;
+        case TYPE_IF: print_if(node -> left, file); break;
         default: ASSERT(0, "Sequence left child has type %i!", node -> left -> type);
     }
+
+    PRINT(" ");
+    PRINT(" ");
 
     if (node -> right) read_sequence(node -> right, file);
 }
 
 
-void set_new_var(const Node *node) {
+void set_new_var(const Node *node, FILE* file) {
     size_t hash = string_hash(node -> value.var);
 
     ASSERT(!find_variable(hash), "Variable %s has already been declarated!", node -> value.var);
@@ -106,6 +115,8 @@ void set_new_var(const Node *node) {
     for(new_var = vars; new_var -> hash; new_var++); // Find empty variable
 
     *new_var = {node -> value.var, hash, (int)(vars - new_var)};
+
+    PRINT("# Add variable %s!", node -> value.var);
 }
 
 
@@ -133,14 +144,18 @@ void print_exp(const Node *node, FILE *file) {
                 case OP_SUB: PRINT("SUB"); break;
                 case OP_MUL: PRINT("MUL"); break;
                 case OP_DIV: PRINT("DIV"); break;
+
                 case OP_EQ: print_cond("JE", file); break;
                 case OP_NEQ: print_cond("JNE", file); break;
-                case OP_GRE: print_cond("JB", file); break;
-                case OP_LES: print_cond("JA", file); break;
-                case OP_GEQ: print_cond("JBE", file); break;
-                case OP_LEQ: print_cond("JAE", file); break;
+                case OP_GRE: print_cond("JA", file); break;
+                case OP_LES: print_cond("JB", file); break;
+                case OP_GEQ: print_cond("JAE", file); break;
+                case OP_LEQ: print_cond("JBE", file); break;
+                
                 default: ASSERT(0, "Unexpected operator %i in expression!", node -> value.op);
             }
+
+            PRINT(" ");
 
             break;
         }
@@ -153,13 +168,28 @@ void print_assign(const Node *node, FILE *file) {
     ASSERT(node -> right, "No expression to assign!");
     print_exp(node -> right, file);
 
-    ASSERT(node -> left, "No variable to assign");
+    ASSERT(node -> left, "No variable to assign!");
     Variable *var = find_variable(string_hash(node -> left -> value.var));
 
     ASSERT(var, "Variable %s is not declarated in the current scope!", node -> left -> value.var);
 
     PRINT("# Assign node [%-p]", node);
     PRINT("POP [%i]", var -> index);
+}
+
+
+void print_if(const Node *node, FILE *file) {
+    ASSERT(node -> left, "If has no condition!");
+    print_exp(node -> left, file);
+
+    PRINT("PUSH 0");
+    int cur_line = line;
+    PRINT("JE FALSE_%i", cur_line);
+
+    ASSERT(node -> right, "If has no sequence!");
+    read_sequence(node -> right, file);
+
+    PRINT("FALSE_%i:", cur_line);
 }
 
 
@@ -190,9 +220,9 @@ size_t gnu_hash(const void *ptr, size_t size) {
 void print_cond(const char *cond_op, FILE *file) {
     PRINT("PUSH 1");
     PRINT("POP RAX");
-    PRINT("%s COND_%i", cond_op, line + 1);
+    PRINT("%s COND_%i", cond_op, line);
     PRINT("PUSH 0");
     PRINT("POP RAX");
-    PRINT("COND_%i:", line + 1);
+    PRINT("COND_%i:", line - 3);
     PRINT("PUSH RAX");
 }
