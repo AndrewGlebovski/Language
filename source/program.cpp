@@ -9,6 +9,11 @@
 typedef stack_data_t Variable;
 
 
+struct VarList {
+    Stack list = {};
+    VarList *prev = nullptr;
+};
+
 
 #define ASSERT(condition, ...)          \
 do                                      \
@@ -34,6 +39,9 @@ Variable *vars = nullptr;
 
 /// Current line index in file
 int line = 1;
+
+/// Index of the first free RAM
+int free_ram_index = 0;
 
 
 /// Reads sequence type node and prints result to file
@@ -66,6 +74,12 @@ size_t string_hash(const char *str);
 
 /// Prints condition result to file
 void print_cond(const char *cond_op, FILE *file);
+
+/// Initializes var list stack
+void var_list_constructor(VarList *var_list, VarList *prev);
+
+/// Destructs var list stack and set new index
+void var_list_destructor(VarList *var_list);
 
 
 
@@ -258,4 +272,20 @@ void print_cond(const char *cond_op, FILE *file) {
     PRINT("POP RAX");
     PRINT("COND_%i:", line - 3);
     PRINT("PUSH RAX");
+}
+
+
+void var_list_constructor(VarList *var_list, VarList *prev) {
+    stack_constructor(&var_list -> list, 2);
+
+    var_list -> prev = prev;
+}
+
+
+void var_list_destructor(VarList *var_list) {
+    free_ram_index = (var_list -> list).data[0].index; // New free RAM index
+
+    stack_destructor(&var_list -> list);
+
+    var_list -> prev = nullptr;
 }
