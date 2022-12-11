@@ -34,6 +34,13 @@ do {                                    \
 } while(0)
 
 
+#define READ_SEQ(varlist, prevlist, node)       \
+VarList varlist = {};                           \
+var_list_constructor(&varlist, prevlist);       \
+read_sequence(node, file, &varlist);            \
+var_list_destructor(&varlist)
+
+
 /// List of variables in program
 Variable *vars = nullptr;
 
@@ -65,9 +72,11 @@ void print_while(const Node *node, FILE *file, VarList *var_list);
 /**
  * \brief Finds variable in list by its name hash
  * \param [in] hash Var name hash
+ * \param [in] var_list List of variables
+ * \param [in] Max depth of recursive search in var list previous
  * \return Pointer to variable or null
 */
-Variable *find_variable(size_t hash);
+Variable *find_variable(size_t hash, const VarList *var_list, int max_depth = INT_MAX);
 
 /// Calculates hash sum of the string
 size_t string_hash(const char *str);
@@ -90,12 +99,7 @@ int print_program(const Tree *tree, const char *filename) {
     vars = (Variable *) calloc(64, sizeof(Variable));
     line = 1;
 
-    VarList var_list = {};
-    var_list_constructor(&var_list, nullptr);
-
-    read_sequence(tree -> root, file, &var_list);
-
-    var_list_destructor(&var_list);
+    READ_SEQ(var_list, nullptr, tree -> root);
 
     free(vars);
 
@@ -124,8 +128,8 @@ void read_sequence(const Node *node, FILE *file, VarList *var_list) {
         default: ASSERT(0, "Sequence left child has type %i!", node -> left -> type);
     }
 
-    PRINT(" ");
-    PRINT(" ");
+    PRINT("    ");
+    PRINT("    ");
 
     if (node -> right) read_sequence(node -> right, file, var_list);
 }
@@ -134,13 +138,7 @@ void read_sequence(const Node *node, FILE *file, VarList *var_list) {
 void set_new_var(const Node *node, FILE *file, VarList *var_list) {
     size_t hash = string_hash(node -> value.var);
 
-    ASSERT(!find_variable(hash), "Variable %s has already been declarated!", node -> value.var);
-
-    Variable *new_var = nullptr;
-
-    for(new_var = vars; new_var -> hash; new_var++); // Find empty variable
-
-    *new_var = {node -> value.var, hash, (int)(vars - new_var)};
+    ASSERT(!find_variable(hash, var_list, 1), "Variable %s has already been declarated!", node -> value.var);
 
     stack_push(&var_list -> list, {node -> value.var, hash, free_ram_index++});
 
@@ -155,7 +153,7 @@ void print_exp(const Node *node, FILE *file, VarList *var_list) {
             break;
         }
         case TYPE_VAR: {
-            Variable *var = find_variable(string_hash(node -> value.var));
+            Variable *var = find_variable(string_hash(node -> value.var), var_list);
 
             ASSERT(var, "Variable %s is not declarated in the current scope!", node -> value.var);
 
@@ -183,7 +181,7 @@ void print_exp(const Node *node, FILE *file, VarList *var_list) {
                 default: ASSERT(0, "Unexpected operator %i in expression!", node -> value.op);
             }
 
-            PRINT(" ");
+            PRINT("    ");
 
             break;
         }
@@ -199,7 +197,7 @@ void print_assign(const Node *node, FILE *file, VarList *var_list) {
     print_exp(node -> right, file, var_list);
 
     ASSERT(node -> left, "No variable to assign!");
-    Variable *var = find_variable(string_hash(node -> left -> value.var));
+    Variable *var = find_variable(string_hash(node -> left -> value.var), var_list);
 
     ASSERT(var, "Variable %s is not declarated in the current scope!", node -> left -> value.var);
 
@@ -220,12 +218,7 @@ void print_if(const Node *node, FILE *file, VarList *var_list) {
 
     ASSERT(node -> right, "If has no sequence!");
 
-    VarList new_var_list = {};
-    var_list_constructor(&new_var_list, nullptr);
-
-    read_sequence(node -> right, file, &new_var_list);
-
-    var_list_destructor(&new_var_list);
+    READ_SEQ(new_var_list, var_list, node -> right);
 
     PRINT("IF_%i_FALSE:", cur_line);
 }
@@ -246,12 +239,7 @@ void print_while(const Node *node, FILE *file, VarList *var_list) {
 
     ASSERT(node -> right, "If has no sequence!");
 
-    VarList new_var_list = {};
-    var_list_constructor(&new_var_list, nullptr);
-
-    read_sequence(node -> right, file, &new_var_list);
-
-    var_list_destructor(&new_var_list);
+    READ_SEQ(new_var_list, var_list, node -> right);
 
     PRINT("JMP CYCLE_%i_ITER", cur_line);
 
@@ -259,9 +247,11 @@ void print_while(const Node *node, FILE *file, VarList *var_list) {
 }
 
 
-Variable *find_variable(size_t hash) {
-    for(Variable *i = vars; i -> hash; i++)
-        if (i -> hash == hash) return i;
+Variable *find_variable(size_t hash, const VarList *var_list, int max_depth) {
+    for(int d = 1; d <= max_depth && var_list; d++, var_list = var_list -> prev)
+        for(int i = 0; i < var_list -> list.size; i++)
+            if ((var_list -> list.data)[i].hash == hash) return var_list -> list.data + i;
+
     return nullptr;
 }
 
