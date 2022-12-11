@@ -45,22 +45,22 @@ int free_ram_index = 0;
 
 
 /// Reads sequence type node and prints result to file
-void read_sequence(const Node *node, FILE *file);
+void read_sequence(const Node *node, FILE *file, VarList *var_list);
 
 /// Add new variable to vars
-void set_new_var(const Node *node, FILE *file);
+void set_new_var(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints expression to file
-void print_exp(const Node *node, FILE *file);
+void print_exp(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints variable assign operation to file
-void print_assign(const Node *node, FILE *file);
+void print_assign(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints if operator to file
-void print_if(const Node *node, FILE *file);
+void print_if(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints while operator to file
-void print_while(const Node *node, FILE *file);
+void print_while(const Node *node, FILE *file, VarList *var_list);
 
 /**
  * \brief Finds variable in list by its name hash
@@ -90,7 +90,12 @@ int print_program(const Tree *tree, const char *filename) {
     vars = (Variable *) calloc(64, sizeof(Variable));
     line = 1;
 
-    read_sequence(tree -> root, file);
+    VarList var_list = {};
+    var_list_constructor(&var_list, nullptr);
+
+    read_sequence(tree -> root, file, &var_list);
+
+    var_list_destructor(&var_list);
 
     free(vars);
 
@@ -102,7 +107,7 @@ int print_program(const Tree *tree, const char *filename) {
 }
 
 
-void read_sequence(const Node *node, FILE *file) {
+void read_sequence(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node, "Sequence is null!");
 
     ASSERT(node -> type == TYPE_SEQ, "Sequence expect type %i, but %i got!", TYPE_SEQ, node -> type);
@@ -112,21 +117,21 @@ void read_sequence(const Node *node, FILE *file) {
     PRINT("# Sequence node [%-p]", node);
 
     switch (node -> left -> type) {
-        case TYPE_NVAR: set_new_var(node -> left, file); break;
-        case TYPE_OP: print_assign(node -> left, file); break;
-        case TYPE_IF: print_if(node -> left, file); break;
-        case TYPE_WHILE: print_while(node -> left, file); break;
+        case TYPE_NVAR: set_new_var(node -> left, file, var_list); break;
+        case TYPE_OP: print_assign(node -> left, file, var_list); break;
+        case TYPE_IF: print_if(node -> left, file, var_list); break;
+        case TYPE_WHILE: print_while(node -> left, file, var_list); break;
         default: ASSERT(0, "Sequence left child has type %i!", node -> left -> type);
     }
 
     PRINT(" ");
     PRINT(" ");
 
-    if (node -> right) read_sequence(node -> right, file);
+    if (node -> right) read_sequence(node -> right, file, var_list);
 }
 
 
-void set_new_var(const Node *node, FILE* file) {
+void set_new_var(const Node *node, FILE *file, VarList *var_list) {
     size_t hash = string_hash(node -> value.var);
 
     ASSERT(!find_variable(hash), "Variable %s has already been declarated!", node -> value.var);
@@ -137,11 +142,13 @@ void set_new_var(const Node *node, FILE* file) {
 
     *new_var = {node -> value.var, hash, (int)(vars - new_var)};
 
+    stack_push(&var_list -> list, {node -> value.var, hash, free_ram_index++});
+
     PRINT("# Add variable %s!", node -> value.var);
 }
 
 
-void print_exp(const Node *node, FILE *file) {
+void print_exp(const Node *node, FILE *file, VarList *var_list) {
     switch(node -> type) {
         case TYPE_NUM: {
             PRINT("PUSH %.3lg", node -> value.dbl);
@@ -156,8 +163,8 @@ void print_exp(const Node *node, FILE *file) {
             break;
         }
         case TYPE_OP: {
-            print_exp(node -> left, file);
-            print_exp(node -> right, file);
+            print_exp(node -> left, file, var_list);
+            print_exp(node -> right, file, var_list);
 
             PRINT("# Expression node [%-p]", node);
             switch (node -> value.op) {
@@ -185,11 +192,11 @@ void print_exp(const Node *node, FILE *file) {
 }
 
 
-void print_assign(const Node *node, FILE *file) {
+void print_assign(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node -> type == TYPE_OP && node -> value.op == OP_ASS, "Assign expect op %i, but %i got!", OP_ASS, node -> value.op);
 
     ASSERT(node -> right, "No expression to assign!");
-    print_exp(node -> right, file);
+    print_exp(node -> right, file, var_list);
 
     ASSERT(node -> left, "No variable to assign!");
     Variable *var = find_variable(string_hash(node -> left -> value.var));
@@ -201,24 +208,30 @@ void print_assign(const Node *node, FILE *file) {
 }
 
 
-void print_if(const Node *node, FILE *file) {
+void print_if(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node -> type == TYPE_IF, "If expect type %i, but %i got!", TYPE_IF, node -> type);
 
     ASSERT(node -> left, "If has no condition!");
-    print_exp(node -> left, file);
+    print_exp(node -> left, file, var_list);
 
     PRINT("PUSH 0");
     int cur_line = line;
     PRINT("JE IF_%i_FALSE", cur_line);
 
     ASSERT(node -> right, "If has no sequence!");
-    read_sequence(node -> right, file);
+
+    VarList new_var_list = {};
+    var_list_constructor(&new_var_list, nullptr);
+
+    read_sequence(node -> right, file, &new_var_list);
+
+    var_list_destructor(&new_var_list);
 
     PRINT("IF_%i_FALSE:", cur_line);
 }
 
 
-void print_while(const Node *node, FILE *file) {
+void print_while(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node -> type == TYPE_WHILE, "While expect type %i, but %i got!", TYPE_WHILE, node -> type);
 
     int cur_line = line;
@@ -226,13 +239,19 @@ void print_while(const Node *node, FILE *file) {
     PRINT("CYCLE_%i_ITER:", cur_line);
 
     ASSERT(node -> left, "If has no condition!");
-    print_exp(node -> left, file);
+    print_exp(node -> left, file, var_list);
 
     PRINT("PUSH 0");
     PRINT("JE CYCLE_%i_FALSE", cur_line);
 
     ASSERT(node -> right, "If has no sequence!");
-    read_sequence(node -> right, file);
+
+    VarList new_var_list = {};
+    var_list_constructor(&new_var_list, nullptr);
+
+    read_sequence(node -> right, file, &new_var_list);
+
+    var_list_destructor(&new_var_list);
 
     PRINT("JMP CYCLE_%i_ITER", cur_line);
 
