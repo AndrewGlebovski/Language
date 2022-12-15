@@ -27,9 +27,56 @@ Node *copy_node(const Node *origin) {
 Node *get_program(Node *str) {
     Node *s = str;
     
-    Node *value = get_statement(&s);
+    Node *value = get_definition(&s);
     
     assert(s -> type == TYPE_ESC && "No TERMINATOR at the end of program!");
+
+    return value;
+}
+
+
+Node *get_definition(Node **s) {
+    Node *value = create_node(TYPE_DEF_SEQ, {0});
+
+    switch ((*s) -> type) {
+        case TYPE_NVAR: {
+            next(s);
+
+            value -> left = get_ident(s);
+
+            value -> left -> type = TYPE_NVAR;
+
+            assert(IS_TYPE(SEQ) && "No ; after statement!");
+            next(s);
+
+            break;
+        }
+        case TYPE_DEF: {
+            next(s);
+
+            value -> left = get_ident(s);
+
+            value -> left -> type = TYPE_DEF;
+
+            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in function declaration!");
+            next(s);
+
+            if (!IS_TYPE(BRACKET)) value -> left -> left = get_function_parameters(s);
+
+            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in function declaration!");
+            next(s);
+
+            value -> left -> right = get_statement(s);
+
+            break;
+        }
+        default: {
+            free(value);
+            return nullptr;
+        }
+    }
+
+    value -> right = get_definition(s);
 
     return value;
 }
@@ -75,25 +122,6 @@ Node *get_statement(Node **s) {
 
             assert(IS_TYPE(SEQ) && "No ; after statement!");
             next(s);
-
-            break;
-        }
-        case TYPE_DEF: {
-            next(s);
-
-            value -> left = get_ident(s);
-
-            value -> left -> type = TYPE_DEF;
-
-            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in function declaration!");
-            next(s);
-
-            if (!IS_TYPE(BRACKET)) value -> left -> left = get_function_parameters(s);
-
-            assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in function declaration!");
-            next(s);
-
-            value -> left -> right = get_statement(s);
 
             break;
         }

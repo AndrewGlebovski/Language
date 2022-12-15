@@ -1,10 +1,13 @@
 /* SYNTAX RULES
 
-program ::= statement '\0'
+program ::= {definition} '\0'
+
+definition ::=
+    'var' ident ';'
+    | 'def' ident '(' {ident}? {',' ident} ')' statement
 
 statement ::=
     'var' ident ';'
-    | 'def' ident '(' {ident}? {',' ident} ')' statement
     | ident '=' expression ';'
     | 'begin' {statement ';'} 'end'
     | 'if' '(' condition ')' statement
@@ -47,6 +50,8 @@ Node *get_function_arguments(Node **s);
 // Recursive descent parser
 
 Node *get_program(Node *str);
+
+Node *get_definition(Node **s);
 
 Node *get_statement(Node **s);
 

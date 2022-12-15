@@ -151,6 +151,7 @@ void print_node(Node *node, FILE *stream) {
         case TYPE_BLOCK:    fprintf(stream, "BLOCK"); break;
         case TYPE_RET:      fprintf(stream, "RET"); break;
         case TYPE_CONT:     fprintf(stream, "CONT"); break;
+        case TYPE_DEF_SEQ:  fprintf(stream, "DEF_SEQ"); break;
         default:            fprintf(stream, "###");
     }
 
@@ -215,6 +216,7 @@ void write_record(FILE *file, Node *node) {
         case TYPE_BLOCK:    fprintf(file, "BLOCK"); break;
         case TYPE_RET:      fprintf(file, "RETURN"); break;
         case TYPE_CONT:     fprintf(file, ","); break;
+        case TYPE_DEF_SEQ:  fprintf(file, "DEF SEQ"); break;
         default:            fprintf(file, "@");
     }
 
