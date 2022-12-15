@@ -132,7 +132,7 @@ int stack_verificator(Stack *stack) {
 
     for(int i = 0; i < stack -> capacity; i++) {
         if (i < stack -> size)
-            CHECK(is_equal_data((stack -> data)[i], POISON_VALUE), return EXIT_CODES::UNEXP_POISON_VAL);
+            CHECK(!is_equal_data((stack -> data)[i], POISON_VALUE), return EXIT_CODES::UNEXP_POISON_VAL);
         else
             CHECK(is_equal_data((stack -> data)[i], POISON_VALUE), return EXIT_CODES::UNEXP_NORMAL_VAL);
     }

@@ -41,8 +41,7 @@ read_sequence(node, file, &varlist);            \
 var_list_destructor(&varlist)
 
 
-/// List of variables in program
-Variable *vars = nullptr;
+
 
 /// Current line index in file
 int line = 1;
@@ -54,7 +53,7 @@ int free_ram_index = 0;
 /// Reads sequence type node and prints result to file
 void read_sequence(const Node *node, FILE *file, VarList *var_list);
 
-/// Add new variable to vars
+/// Add new variable to variable list of the current scope
 void set_new_var(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints expression to file
@@ -96,12 +95,9 @@ void var_list_destructor(VarList *var_list);
 int print_program(const Tree *tree, const char *filename) {
     FILE *file = fopen(filename, "w");
 
-    vars = (Variable *) calloc(64, sizeof(Variable));
     line = 1;
 
     READ_SEQ(var_list, nullptr, tree -> root);
-
-    free(vars);
 
     PRINT("HLT");
 
@@ -111,27 +107,27 @@ int print_program(const Tree *tree, const char *filename) {
 }
 
 
-void read_sequence(const Node *node, FILE *file, VarList *var_list) {
-    ASSERT(node, "Sequence is null!");
+void read_sequence(const Node *begin, FILE *file, VarList *var_list) {
+    for (const Node *node = begin; node; node = node -> right){
+        ASSERT(node, "Sequence is null!");
 
-    ASSERT(node -> type == TYPE_SEQ, "Sequence expect type %i, but %i got!", TYPE_SEQ, node -> type);
+        ASSERT(node -> type == TYPE_SEQ, "Sequence expect type %i, but %i got!", TYPE_SEQ, node -> type);
 
-    ASSERT(node -> left, "Sequence has no left child!");
+        ASSERT(node -> left, "Sequence has no left child!");
 
-    PRINT("# Sequence node [%-p]", node);
+        PRINT("# Sequence node [%-p]", node);
 
-    switch (node -> left -> type) {
-        case TYPE_NVAR: set_new_var(node -> left, file, var_list); break;
-        case TYPE_OP: print_assign(node -> left, file, var_list); break;
-        case TYPE_IF: print_if(node -> left, file, var_list); break;
-        case TYPE_WHILE: print_while(node -> left, file, var_list); break;
-        default: ASSERT(0, "Sequence left child has type %i!", node -> left -> type);
+        switch (node -> left -> type) {
+            case TYPE_NVAR: set_new_var(node -> left, file, var_list); break;
+            case TYPE_OP: print_assign(node -> left, file, var_list); break;
+            case TYPE_IF: print_if(node -> left, file, var_list); break;
+            case TYPE_WHILE: print_while(node -> left, file, var_list); break;
+            default: ASSERT(0, "Sequence left child has type %i!", node -> left -> type);
+        }
+
+        PRINT("    ");
+        PRINT("    ");
     }
-
-    PRINT("    ");
-    PRINT("    ");
-
-    if (node -> right) read_sequence(node -> right, file, var_list);
 }
 
 
