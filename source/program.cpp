@@ -6,6 +6,9 @@
 #include "program.hpp"
 
 
+const int TAB_SIZE = 4;
+
+
 typedef stack_data_t Variable;
 
 
@@ -25,20 +28,36 @@ do                                      \
     }                                   \
 } while (0)
 
-
+/// Prints with the current offset
 #define PRINT(...)                      \
 do {                                    \
+    fprintf(file, "%*s", shift, "");    \
     fprintf(file, __VA_ARGS__);         \
     fputc('\n', file);                  \
     line++;                             \
 } while(0)
 
+/// Prints with the current offset plus one more TAB_SIZE
+#define PRINTL(...)                                 \
+do {                                                \
+    fprintf(file, "%*s", shift + TAB_SIZE, "");     \
+    fprintf(file, __VA_ARGS__);                     \
+    fputc('\n', file);                              \
+    line++;                                         \
+} while(0)
 
-#define READ_SEQ(varlist, prevlist, node)       \
-VarList varlist = {};                           \
-var_list_constructor(&varlist, prevlist);       \
-read_sequence(node, file, &varlist);            \
+/// Contructs new stack of local variables, gives it to sequence, then free it
+#define READ_SEQ(varlist, prevlist, node)                  \
+VarList varlist = {};                                      \
+var_list_constructor(&varlist, prevlist);                  \
+read_sequence(node, file, &varlist, shift + TAB_SIZE);     \
 var_list_destructor(&varlist)
+
+/// Declarates function for assembler source code output with the same set of parameters
+#define DEFINE_FUNC(func_name) void func_name(const Node *node, FILE *file, VarList *var_list, int shift)
+
+/// Calls function for assembler source code output with only argument
+#define CALL_FUNC(func_name, node_arg) func_name(node_arg, file, var_list, shift + TAB_SIZE)
 
 
 
@@ -51,22 +70,22 @@ int free_ram_index = 0;
 
 
 /// Reads sequence type node and prints result to file
-void read_sequence(const Node *node, FILE *file, VarList *var_list);
+DEFINE_FUNC(read_sequence);
 
 /// Add new variable to variable list of the current scope
-void set_new_var(const Node *node, FILE *file, VarList *var_list);
+DEFINE_FUNC(set_new_var);
 
 /// Prints expression to file
-void print_exp(const Node *node, FILE *file, VarList *var_list);
+DEFINE_FUNC(print_exp);
 
 /// Prints variable assign operation to file
-void print_assign(const Node *node, FILE *file, VarList *var_list);
+DEFINE_FUNC(print_assign);
 
 /// Prints if operator to file
-void print_if(const Node *node, FILE *file, VarList *var_list);
+DEFINE_FUNC(print_if);
 
 /// Prints while operator to file
-void print_while(const Node *node, FILE *file, VarList *var_list);
+DEFINE_FUNC(print_while);
 
 /**
  * \brief Finds variable in list by its name hash
@@ -81,7 +100,7 @@ Variable *find_variable(size_t hash, const VarList *var_list, int max_depth = IN
 size_t string_hash(const char *str);
 
 /// Prints condition result to file
-void print_cond(const char *cond_op, FILE *file);
+void print_cond(const char *cond_op, FILE *file, int shift);
 
 /// Initializes var list stack
 void var_list_constructor(VarList *var_list, VarList *prev);
@@ -97,9 +116,11 @@ int print_program(const Tree *tree, const char *filename) {
 
     line = 1;
 
+    int shift = -4;              // Это по факту костыль, чтоб макросы работали без исключений
+
     READ_SEQ(var_list, nullptr, tree -> root);
 
-    PRINT("HLT");
+    PRINTL("HLT");
 
     fclose(file);
 
@@ -107,31 +128,31 @@ int print_program(const Tree *tree, const char *filename) {
 }
 
 
-void read_sequence(const Node *begin, FILE *file, VarList *var_list) {
-    for (const Node *node = begin; node; node = node -> right){
-        ASSERT(node, "Sequence is null!");
+DEFINE_FUNC(read_sequence) {
+    for (const Node *iter = node; iter; iter = iter -> right){
+        ASSERT(iter, "Sequence is null!");
 
-        ASSERT(node -> type == TYPE_SEQ, "Sequence expect type %i, but %i got!", TYPE_SEQ, node -> type);
+        ASSERT(iter -> type == TYPE_SEQ, "Sequence expect type %i, but %i got!", TYPE_SEQ, iter -> type);
 
-        ASSERT(node -> left, "Sequence has no left child!");
+        ASSERT(iter -> left, "Sequence has no left child!");
 
-        PRINT("# Sequence node [%-p]", node);
+        PRINT("# Sequence node [%-p]", iter);
 
-        switch (node -> left -> type) {
-            case TYPE_NVAR: set_new_var(node -> left, file, var_list); break;
-            case TYPE_OP: print_assign(node -> left, file, var_list); break;
-            case TYPE_IF: print_if(node -> left, file, var_list); break;
-            case TYPE_WHILE: print_while(node -> left, file, var_list); break;
-            default: ASSERT(0, "Sequence left child has type %i!", node -> left -> type);
+        switch (iter -> left -> type) {
+            case TYPE_NVAR:     CALL_FUNC(set_new_var, iter -> left);       break;
+            case TYPE_OP:       CALL_FUNC(print_assign, iter -> left);      break;
+            case TYPE_IF:       CALL_FUNC(print_if, iter -> left);          break;
+            case TYPE_WHILE:    CALL_FUNC(print_while, iter -> left);       break;
+            default: ASSERT(0, "Sequence left child has type %i!", iter -> left -> type);
         }
 
-        PRINT("    ");
-        PRINT("    ");
+        PRINT("%s", ""); // Тоже костыль, чтобы пропустить строку для ясности в ассемблере
+        PRINT("%s", "");
     }
 }
 
 
-void set_new_var(const Node *node, FILE *file, VarList *var_list) {
+DEFINE_FUNC(set_new_var) {
     size_t hash = string_hash(node -> value.var);
 
     ASSERT(!find_variable(hash, var_list, 1), "Variable %s has already been declarated!", node -> value.var);
@@ -142,7 +163,7 @@ void set_new_var(const Node *node, FILE *file, VarList *var_list) {
 }
 
 
-void print_exp(const Node *node, FILE *file, VarList *var_list) {
+DEFINE_FUNC(print_exp) {
     switch(node -> type) {
         case TYPE_NUM: {
             PRINT("PUSH %.3lg", node -> value.dbl);
@@ -157,89 +178,103 @@ void print_exp(const Node *node, FILE *file, VarList *var_list) {
             break;
         }
         case TYPE_OP: {
-            print_exp(node -> left, file, var_list);
-            print_exp(node -> right, file, var_list);
-
             PRINT("# Expression node [%-p]", node);
+
+            CALL_FUNC(print_exp, node -> left);
+            CALL_FUNC(print_exp, node -> right);
+
+            shift += 4;
+
+            PRINT("%s", "");
+
             switch (node -> value.op) {
                 case OP_ADD: PRINT("ADD"); break;
                 case OP_SUB: PRINT("SUB"); break;
                 case OP_MUL: PRINT("MUL"); break;
                 case OP_DIV: PRINT("DIV"); break;
 
-                case OP_EQ: print_cond("JE", file); break;
-                case OP_NEQ: print_cond("JNE", file); break;
-                case OP_GRE: print_cond("JA", file); break;
-                case OP_LES: print_cond("JB", file); break;
-                case OP_GEQ: print_cond("JAE", file); break;
-                case OP_LEQ: print_cond("JBE", file); break;
+                case OP_EQ:     print_cond("JE", file, shift);  break;
+                case OP_NEQ:    print_cond("JNE", file, shift); break;
+                case OP_GRE:    print_cond("JA", file, shift);  break;
+                case OP_LES:    print_cond("JB", file, shift);  break;
+                case OP_GEQ:    print_cond("JAE", file, shift); break;
+                case OP_LEQ:    print_cond("JBE", file, shift); break;
 
                 default: ASSERT(0, "Unexpected operator %i in expression!", node -> value.op);
             }
-
-            PRINT("    ");
 
             break;
         }
         default: ASSERT(0, "Node has type %i and it's not expression type!", node -> type);
     }
+
+    PRINT("%s", "");
 }
 
 
-void print_assign(const Node *node, FILE *file, VarList *var_list) {
+DEFINE_FUNC(print_assign) {
+    PRINT("# Assign node [%-p]", node);
+
     ASSERT(node -> type == TYPE_OP && node -> value.op == OP_ASS, "Assign expect op %i, but %i got!", OP_ASS, node -> value.op);
 
     ASSERT(node -> right, "No expression to assign!");
-    print_exp(node -> right, file, var_list);
+    CALL_FUNC(print_exp, node -> right);
 
     ASSERT(node -> left, "No variable to assign!");
     Variable *var = find_variable(string_hash(node -> left -> value.var), var_list);
 
     ASSERT(var, "Variable %s is not declarated in the current scope!", node -> left -> value.var);
 
-    PRINT("# Assign node [%-p]", node);
-    PRINT("POP [%i]", var -> index);
+    PRINTL("POP [%i]", var -> index);
 }
 
 
-void print_if(const Node *node, FILE *file, VarList *var_list) {
+DEFINE_FUNC(print_if) {
     ASSERT(node -> type == TYPE_IF, "If expect type %i, but %i got!", TYPE_IF, node -> type);
 
-    ASSERT(node -> left, "If has no condition!");
-    print_exp(node -> left, file, var_list);
+    PRINT("# If node [%-p]", node);
 
-    PRINT("PUSH 0");
+    ASSERT(node -> left, "If has no condition!");
+    CALL_FUNC(print_exp, node -> left);
+
+    PRINTL("PUSH 0");
     int cur_line = line;
-    PRINT("JE IF_%i_FALSE", cur_line);
+    PRINTL("JE IF_%i_FALSE", cur_line);
+
+    PRINT("%s", "");
 
     ASSERT(node -> right, "If has no sequence!");
 
     READ_SEQ(new_var_list, var_list, node -> right);
 
-    PRINT("IF_%i_FALSE:", cur_line);
+    PRINTL("IF_%i_FALSE:", cur_line);
 }
 
 
-void print_while(const Node *node, FILE *file, VarList *var_list) {
+DEFINE_FUNC(print_while) {
     ASSERT(node -> type == TYPE_WHILE, "While expect type %i, but %i got!", TYPE_WHILE, node -> type);
+
+    PRINT("# While node [%-p]", node);
 
     int cur_line = line;
 
-    PRINT("CYCLE_%i_ITER:", cur_line);
+    PRINTL("CYCLE_%i_ITER:", cur_line);
 
     ASSERT(node -> left, "If has no condition!");
-    print_exp(node -> left, file, var_list);
+    CALL_FUNC(print_exp, node -> left);
 
-    PRINT("PUSH 0");
-    PRINT("JE CYCLE_%i_FALSE", cur_line);
+    PRINTL("PUSH 0");
+    PRINTL("JE CYCLE_%i_FALSE", cur_line);
+
+    PRINT("%s", "");
 
     ASSERT(node -> right, "If has no sequence!");
 
     READ_SEQ(new_var_list, var_list, node -> right);
 
-    PRINT("JMP CYCLE_%i_ITER", cur_line);
+    PRINTL("JMP CYCLE_%i_ITER", cur_line);
 
-    PRINT("CYCLE_%i_FALSE:", cur_line);
+    PRINTL("CYCLE_%i_FALSE:", cur_line);
 }
 
 
@@ -269,7 +304,7 @@ size_t gnu_hash(const void *ptr, size_t size) {
 }
 
 
-void print_cond(const char *cond_op, FILE *file) {
+void print_cond(const char *cond_op, FILE *file, int shift) {
     PRINT("PUSH 1");
     PRINT("POP RAX");
     PRINT("%s COND_%i", cond_op, line);
