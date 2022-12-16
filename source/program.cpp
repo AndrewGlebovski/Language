@@ -49,6 +49,12 @@ do {                                                \
     line++;                                         \
 } while(0)
 
+/// Prints skip one line to file
+#define SKIP_LINE(...) do {                         \
+    fputc('\n', file);                              \
+    line++;                                         \
+} while(0)
+
 /// Contructs new stack of local variables, gives it to sequence, then free it
 #define READ_SEQ(varlist, prevlist, node)                  \
 VarList varlist = {};                                      \
@@ -190,7 +196,7 @@ DEFINE_FUNC(read_def_sequence) {
             default: ASSERT(0, "Definition sequence left child has type %i!", iter -> left -> type);
         }
 
-        PRINT("%s", "");
+        SKIP_LINE();
     }
 }
 
@@ -214,7 +220,7 @@ DEFINE_FUNC(read_sequence) {
             default: ASSERT(0, "Sequence left child has type %i!", iter -> left -> type);
         }
 
-        PRINT("%s", "");
+        SKIP_LINE();
     }
 }
 
@@ -237,7 +243,7 @@ void print_params(const Node *node, FILE *file, int shift, int index_offset) {
 
     PRINT("# Function parameter %s", node -> value.var);
     PRINTL("POP [%i + RDX]", index_offset);
-    PRINT("%s", "");
+    SKIP_LINE();
 }
 
 
@@ -247,13 +253,13 @@ DEFINE_FUNC(set_new_func) {
     Function new_func = {node -> value.var, string_hash(node -> value.var), 0};
 
     PRINT("# Function declaration [%-p]", node);
-    PRINT("%s", "");
+    SKIP_LINE();
 
     VarList new_varlist = {};
     var_list_constructor(&new_varlist, var_list);
 
     PRINTL("FUNC_%s:", node -> value.var);
-    PRINT("%s", "");
+    SKIP_LINE();
 
     for (const Node *par = node -> left; par; par = par -> right, new_func.index++) 
         stack_push(&new_varlist.list, {par -> value.var, string_hash(par -> value.var), new_func.index});
@@ -299,7 +305,7 @@ DEFINE_FUNC(print_exp) {
 
                 CALL_FUNC(print_exp, arg -> left);
 
-                PRINT("%s", "");
+                SKIP_LINE();
             }
 
             ASSERT(arg_count == func -> index, "Function %s expects %i arguments, but got %i!", func -> name, func -> index, arg_count);
@@ -308,16 +314,16 @@ DEFINE_FUNC(print_exp) {
             PRINT("PUSH %i", index_list.data[index_list.size - 1].index); 
             PRINT("ADD");
             PRINT("POP RDX");
-            PRINT("%s", "");
+            SKIP_LINE();
 
             PRINT("CALL FUNC_%s", node -> value.var);
 
-            PRINT("%s", "");
+            SKIP_LINE();
             PRINT("PUSH RDX");
             PRINT("PUSH %i", index_list.data[index_list.size - 1].index); 
             PRINT("SUB");
             PRINT("POP RDX");
-            PRINT("%s", "");
+            SKIP_LINE();
 
             stack_push(&index_list, {nullptr, 0, 0});
 
@@ -383,7 +389,7 @@ DEFINE_FUNC(print_if) {
     int cur_line = line;
     PRINTL("JE IF_%i_FALSE", cur_line);
 
-    PRINT("%s", "");
+    SKIP_LINE();
 
     ASSERT(node -> right, "If has no sequence!");
 
@@ -408,7 +414,7 @@ DEFINE_FUNC(print_while) {
     PRINTL("PUSH 0");
     PRINTL("JE CYCLE_%i_FALSE", cur_line);
 
-    PRINT("%s", "");
+    SKIP_LINE();
 
     ASSERT(node -> right, "If has no sequence!");
 
@@ -479,7 +485,7 @@ void print_cond(const char *cond_op, FILE *file, int shift) {
     PRINT("COND_%i:", line - 3);
     PRINT("PUSH RAX");
 
-    PRINT("%s", "");
+    SKIP_LINE();
 }
 
 
