@@ -80,9 +80,6 @@ Stack global_list = {};
 /// List of the functions
 Stack func_list = {};
 
-/// List of ram indexes
-Stack index_list = {};
-
 
 /// Reads definition sequence type node and prints result to file
 DEFINE_FUNC(read_def_sequence);
@@ -130,6 +127,14 @@ Variable *find_variable(size_t hash, const VarList *var_list, int max_depth = IN
 Function *find_function(size_t hash);
 
 
+/**
+ * \brief Counts local variables and parameters in function
+ * \param [in] varlist To start count from
+ * \return Variables count
+*/
+int count_variables(const VarList *varlist);
+
+
 /// Calculates hash sum of the string
 size_t string_hash(const char *str);
 
@@ -152,8 +157,6 @@ int print_program(const Tree *tree, const char *filename) {
 
     int shift = -4;              // Это по факту костыль, чтоб макросы работали без исключений
 
-    stack_constructor(&index_list, 2);
-    stack_push(&index_list, {nullptr, 0, 0});
     stack_constructor(&global_list, 2);
     stack_constructor(&func_list, 2);
 
@@ -165,7 +168,6 @@ int print_program(const Tree *tree, const char *filename) {
 
     stack_destructor(&global_list);
     stack_destructor(&func_list);
-    stack_destructor(&index_list);
 
     PRINTL("START:");
     PRINTL("PUSH %i", global_list.size);
@@ -230,7 +232,7 @@ DEFINE_FUNC(set_new_var) {
 
     ASSERT(!find_variable(hash, var_list, 1), "Variable %s has already been declarated!", node -> value.var);
 
-    stack_push(&var_list -> list, {node -> value.var, hash, index_list.data[index_list.size - 1].index++});
+    stack_push(&var_list -> list, {node -> value.var, hash, count_variables(var_list)});
 
     PRINT("# Add variable %s!", node -> value.var);
 }
@@ -267,8 +269,6 @@ DEFINE_FUNC(set_new_func) {
     print_params(node -> left, file, shift + TAB_SIZE, 0);
 
     stack_push(&func_list, new_func);
-
-    stack_push(&index_list, {nullptr, 0, new_func.index});
 
     ASSERT(node -> right, "Function has no sequence!");
     read_sequence(node -> right, file, &new_varlist, shift + TAB_SIZE);
@@ -311,7 +311,7 @@ DEFINE_FUNC(print_exp) {
             ASSERT(arg_count == func -> index, "Function %s expects %i arguments, but got %i!", func -> name, func -> index, arg_count);
 
             PRINT("PUSH RDX");
-            PRINT("PUSH %i", index_list.data[index_list.size - 1].index); 
+            PRINT("PUSH %i", count_variables(var_list)); 
             PRINT("ADD");
             PRINT("POP RDX");
             SKIP_LINE();
@@ -320,12 +320,10 @@ DEFINE_FUNC(print_exp) {
 
             SKIP_LINE();
             PRINT("PUSH RDX");
-            PRINT("PUSH %i", index_list.data[index_list.size - 1].index); 
+            PRINT("PUSH %i", count_variables(var_list)); 
             PRINT("SUB");
             PRINT("POP RDX");
             SKIP_LINE();
-
-            stack_push(&index_list, {nullptr, 0, 0});
 
             break;
         }
@@ -434,9 +432,6 @@ DEFINE_FUNC(print_return) {
     ASSERT(node -> left, "Return has no expression!");
     CALL_FUNC(print_exp, node -> left);
 
-    stack_data_t tmp = {};
-    stack_pop(&index_list, &tmp);
-
     PRINTL("RET");
 }
 
@@ -497,9 +492,17 @@ void var_list_constructor(VarList *var_list, VarList *prev) {
 
 
 void var_list_destructor(VarList *var_list) {
-    index_list.data[index_list.size - 1].index -= (var_list -> list).size;
-
     stack_destructor(&var_list -> list);
 
     var_list -> prev = nullptr;
+}
+
+
+int count_variables(const VarList *varlist) {
+    int count = 0;
+
+    for(const VarList *iter = varlist; iter; iter = iter -> prev)
+        count += iter -> list.size;
+
+    return count;
 }
