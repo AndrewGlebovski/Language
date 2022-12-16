@@ -8,8 +8,11 @@
 
 const int TAB_SIZE = 4;
 
+const char *MAIN_FUNC_NAME = "FUNC_VAR_22B14C_01B8923B";
+
 
 typedef stack_data_t Variable;
+typedef stack_data_t Function;
 
 
 struct VarList {
@@ -65,15 +68,27 @@ var_list_destructor(&varlist)
 /// Current line index in file
 int line = 1;
 
-/// Index of the first free RAM
-int free_ram_index = 0;
+/// List of the global variables
+Stack global_list = {};
 
+/// List of the functions
+Stack func_list = {};
+
+/// List of ram indexes
+Stack index_list = {};
+
+
+/// Reads definition sequence type node and prints result to file
+DEFINE_FUNC(read_def_sequence);
 
 /// Reads sequence type node and prints result to file
 DEFINE_FUNC(read_sequence);
 
 /// Add new variable to variable list of the current scope
 DEFINE_FUNC(set_new_var);
+
+/// Add new function to function list of the current scope
+DEFINE_FUNC(set_new_func);
 
 /// Prints expression to file
 DEFINE_FUNC(print_exp);
@@ -87,6 +102,10 @@ DEFINE_FUNC(print_if);
 /// Prints while operator to file
 DEFINE_FUNC(print_while);
 
+/// Prints return statement to file
+DEFINE_FUNC(print_return);
+
+
 /**
  * \brief Finds variable in list by its name hash
  * \param [in] hash Var name hash
@@ -95,6 +114,15 @@ DEFINE_FUNC(print_while);
  * \return Pointer to variable or null
 */
 Variable *find_variable(size_t hash, const VarList *var_list, int max_depth = INT_MAX);
+
+
+/**
+ * \brief Finds function by its name hash
+ * \param [in] hash Function name hash
+ * \return Pointer to function
+*/
+Function *find_function(size_t hash);
+
 
 /// Calculates hash sum of the string
 size_t string_hash(const char *str);
@@ -118,13 +146,52 @@ int print_program(const Tree *tree, const char *filename) {
 
     int shift = -4;              // Это по факту костыль, чтоб макросы работали без исключений
 
-    READ_SEQ(var_list, nullptr, tree -> root);
+    stack_constructor(&index_list, 2);
+    stack_push(&index_list, {nullptr, 0, 0});
+    stack_constructor(&global_list, 2);
+    stack_constructor(&func_list, 2);
+
+    VarList var_list = {global_list, nullptr};
+
+    PRINTL("JMP START:");
+
+    read_def_sequence(tree -> root, file, &var_list, shift + TAB_SIZE);
+
+    stack_destructor(&global_list);
+    stack_destructor(&func_list);
+    stack_destructor(&index_list);
+
+    PRINTL("START:");
+    PRINTL("PUSH %i", global_list.size);
+    PRINTL("POP RDX");
+    PRINTL("CALL %s:", MAIN_FUNC_NAME);
 
     PRINTL("HLT");
 
     fclose(file);
 
     return 0;
+}
+
+
+DEFINE_FUNC(read_def_sequence) {
+    for (const Node *iter = node; iter; iter = iter -> right){
+        ASSERT(iter, "Definition sequence is null!");
+
+        ASSERT(iter -> type == TYPE_DEF_SEQ, "Definition sequence expect type %i, but %i got!", TYPE_DEF_SEQ, iter -> type);
+
+        ASSERT(iter -> left, "Definition sequence has no left child!");
+
+        PRINT("# Definition sequence node [%-p]", iter);
+
+        switch (iter -> left -> type) {
+            case TYPE_NVAR:     CALL_FUNC(set_new_var, iter -> left);       break;
+            case TYPE_DEF:      CALL_FUNC(set_new_func, iter -> left);      break;
+            default: ASSERT(0, "Definition sequence left child has type %i!", iter -> left -> type);
+        }
+
+        PRINT("%s", "");
+    }
 }
 
 
@@ -143,10 +210,10 @@ DEFINE_FUNC(read_sequence) {
             case TYPE_OP:       CALL_FUNC(print_assign, iter -> left);      break;
             case TYPE_IF:       CALL_FUNC(print_if, iter -> left);          break;
             case TYPE_WHILE:    CALL_FUNC(print_while, iter -> left);       break;
+            case TYPE_RET:      CALL_FUNC(print_return, iter -> left);      break;
             default: ASSERT(0, "Sequence left child has type %i!", iter -> left -> type);
         }
 
-        PRINT("%s", ""); // Тоже костыль, чтобы пропустить строку для ясности в ассемблере
         PRINT("%s", "");
     }
 }
@@ -157,9 +224,50 @@ DEFINE_FUNC(set_new_var) {
 
     ASSERT(!find_variable(hash, var_list, 1), "Variable %s has already been declarated!", node -> value.var);
 
-    stack_push(&var_list -> list, {node -> value.var, hash, free_ram_index++});
+    stack_push(&var_list -> list, {node -> value.var, hash, index_list.data[index_list.size - 1].index++});
 
     PRINT("# Add variable %s!", node -> value.var);
+}
+
+
+void print_params(const Node *node, FILE *file, int shift, int index_offset) {
+    if (!node) return;
+
+    if (node -> right) print_params(node -> right, file, shift, index_offset + 1);
+
+    PRINT("# Function parameter %s", node -> value.var);
+    PRINTL("POP [%i + RDX]", index_offset);
+    PRINT("%s", "");
+}
+
+
+DEFINE_FUNC(set_new_func) {
+    ASSERT(node -> type == TYPE_DEF, "Node is not def type!");
+    
+    Function new_func = {node -> value.var, string_hash(node -> value.var), 0};
+
+    PRINT("# Function declaration [%-p]", node);
+    PRINT("%s", "");
+
+    VarList new_varlist = {};
+    var_list_constructor(&new_varlist, var_list);
+
+    PRINTL("FUNC_%s:", node -> value.var);
+    PRINT("%s", "");
+
+    for (const Node *par = node -> left; par; par = par -> right, new_func.index++) 
+        stack_push(&new_varlist.list, {par -> value.var, string_hash(par -> value.var), new_func.index});
+
+    print_params(node -> left, file, shift + TAB_SIZE, 0);
+
+    stack_push(&func_list, new_func);
+
+    stack_push(&index_list, {nullptr, 0, new_func.index});
+
+    ASSERT(node -> right, "Function has no sequence!");
+    read_sequence(node -> right, file, &new_varlist, shift + TAB_SIZE);
+
+    var_list_destructor(&new_varlist);
 }
 
 
@@ -174,7 +282,45 @@ DEFINE_FUNC(print_exp) {
 
             ASSERT(var, "Variable %s is not declarated in the current scope!", node -> value.var);
 
-            PRINT("PUSH [%i]", var -> index);
+            PRINT("PUSH [%i + RDX]", var -> index);
+            break;
+        }
+        case TYPE_CALL: {
+            PRINT("# Call function node [%-p]", node);
+
+            Function *func = find_function(string_hash(node -> value.var));
+
+            shift += 4;
+
+            int arg_count = 0;
+
+            for (const Node *arg = node -> left; arg; arg = arg -> right, arg_count++) {
+                PRINT("# Argument node [%-p]", node);
+
+                CALL_FUNC(print_exp, arg -> left);
+
+                PRINT("%s", "");
+            }
+
+            ASSERT(arg_count == func -> index, "Function %s expects %i arguments, but got %i!", func -> name, func -> index, arg_count);
+
+            PRINT("PUSH RDX");
+            PRINT("PUSH %i", index_list.data[index_list.size - 1].index); 
+            PRINT("ADD");
+            PRINT("POP RDX");
+            PRINT("%s", "");
+
+            PRINT("CALL FUNC_%s", node -> value.var);
+
+            PRINT("%s", "");
+            PRINT("PUSH RDX");
+            PRINT("PUSH %i", index_list.data[index_list.size - 1].index); 
+            PRINT("SUB");
+            PRINT("POP RDX");
+            PRINT("%s", "");
+
+            stack_push(&index_list, {nullptr, 0, 0});
+
             break;
         }
         case TYPE_OP: {
@@ -184,8 +330,6 @@ DEFINE_FUNC(print_exp) {
             CALL_FUNC(print_exp, node -> right);
 
             shift += 4;
-
-            PRINT("%s", "");
 
             switch (node -> value.op) {
                 case OP_ADD: PRINT("ADD"); break;
@@ -207,8 +351,6 @@ DEFINE_FUNC(print_exp) {
         }
         default: ASSERT(0, "Node has type %i and it's not expression type!", node -> type);
     }
-
-    PRINT("%s", "");
 }
 
 
@@ -225,7 +367,7 @@ DEFINE_FUNC(print_assign) {
 
     ASSERT(var, "Variable %s is not declarated in the current scope!", node -> left -> value.var);
 
-    PRINTL("POP [%i]", var -> index);
+    PRINTL("POP [%i + RDX]", var -> index);
 }
 
 
@@ -278,11 +420,34 @@ DEFINE_FUNC(print_while) {
 }
 
 
+DEFINE_FUNC(print_return) {
+    ASSERT(node -> type == TYPE_RET, "Return expect type %i, but %i got!", TYPE_RET, node -> type);
+
+    PRINT("# Return node [%-p]", node);
+
+    ASSERT(node -> left, "Return has no expression!");
+    CALL_FUNC(print_exp, node -> left);
+
+    stack_data_t tmp = {};
+    stack_pop(&index_list, &tmp);
+
+    PRINTL("RET");
+}
+
+
 Variable *find_variable(size_t hash, const VarList *var_list, int max_depth) {
     for(int d = 1; d <= max_depth && var_list; d++, var_list = var_list -> prev)
         for(int i = 0; i < var_list -> list.size; i++)
             if ((var_list -> list.data)[i].hash == hash) return var_list -> list.data + i;
 
+    return nullptr;
+}
+
+
+Function *find_function(size_t hash) {
+    for (int i = 0; i < func_list.size; i++)
+        if (func_list.data[i].hash == hash) return func_list.data + i;
+    
     return nullptr;
 }
 
@@ -305,6 +470,7 @@ size_t gnu_hash(const void *ptr, size_t size) {
 
 
 void print_cond(const char *cond_op, FILE *file, int shift) {
+    PRINT("# Condition");
     PRINT("PUSH 1");
     PRINT("POP RAX");
     PRINT("%s COND_%i", cond_op, line);
@@ -312,6 +478,8 @@ void print_cond(const char *cond_op, FILE *file, int shift) {
     PRINT("POP RAX");
     PRINT("COND_%i:", line - 3);
     PRINT("PUSH RAX");
+
+    PRINT("%s", "");
 }
 
 
@@ -323,7 +491,7 @@ void var_list_constructor(VarList *var_list, VarList *prev) {
 
 
 void var_list_destructor(VarList *var_list) {
-    free_ram_index = (var_list -> list).data[0].index; // New free RAM index
+    index_list.data[index_list.size - 1].index -= (var_list -> list).size;
 
     stack_destructor(&var_list -> list);
 
