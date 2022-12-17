@@ -186,6 +186,11 @@ int print_program(const Tree *tree, const char *filename) {
 
     read_def_sequence(tree -> root, file, &global_list, shift + TAB_SIZE);
 
+    if (!find_function(string_hash(MAIN_FUNC))) {
+        printf("Main function was not declarated in the current scope!");
+        abort();
+    }
+
     PRINTL("START:");
     PRINTL("PUSH %i", global_list.list.size);
     PRINTL("POP RDX");
