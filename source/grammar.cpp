@@ -68,7 +68,7 @@ Node *get_definition(Node **s) {
             assert(IS_TYPE(BRACKET) && (*s) -> value.op == 1 && "No opening bracket in function declaration!");
             next(s);
 
-            if (!IS_TYPE(BRACKET)) value -> left -> left = get_function_parameters(s);
+            if (!(IS_TYPE(BRACKET) && (*s) -> value.op == 0)) value -> left -> left = get_function_parameters(s);
 
             assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in function declaration!");
             next(s);
@@ -92,7 +92,7 @@ Node *get_definition(Node **s) {
 Node *get_block_value(Node **s) {
     Node *value = get_statement(s);
 
-    if (!IS_TYPE(BLOCK))
+    if (!(IS_TYPE(BLOCK) && (*s) -> value.op == 0))
         value -> right = get_block_value(s);
 
     return value;
@@ -198,7 +198,13 @@ Node *get_statement(Node **s) {
             assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in if!");
             next(s);
 
-            value -> left -> right = get_statement(s);
+            value -> left -> right = create_node(TYPE_BRANCH, {0}, get_statement(s));
+
+            if (IS_TYPE(ELSE)) {
+                next(s);
+
+                value -> left -> right -> right = get_statement(s);
+            }
 
             break;
         }
@@ -218,7 +224,7 @@ Node *get_statement(Node **s) {
 
             break;
         }
-        default: { // Все еще нужна проверка если конструкция вида ; или expression;
+        default: {
             free(value);
             value = nullptr;
         }
@@ -346,14 +352,14 @@ Node *get_function_arguments(Node **s) {
 Node *get_function(Node **s) {
     Node *value = get_ident(s);
 
-    if (IS_TYPE(BRACKET)) {
+    if (IS_TYPE(BRACKET) && (*s) -> value.op == 1) {
         next(s);
 
         value -> type = TYPE_CALL; 
 
-        if (!IS_TYPE(BRACKET)) value -> left = get_function_arguments(s);
+        if (!(IS_TYPE(BRACKET) && (*s) -> value.op == 0)) value -> left = get_function_arguments(s);
 
-        assert(IS_TYPE(BRACKET) && "No closing bracket in function call!");
+        assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in function call!");
         next(s);
     }
 

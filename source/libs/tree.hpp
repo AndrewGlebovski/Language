@@ -41,7 +41,8 @@ typedef enum {
     TYPE_CONT,
     TYPE_RET,
     TYPE_DEF_SEQ,
-    TYPE_ELSE
+    TYPE_ELSE,
+    TYPE_BRANCH
 } NODE_TYPES;
 
 

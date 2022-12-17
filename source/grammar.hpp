@@ -11,7 +11,7 @@ statement ::=
     | ident '=' expression ';'
     | ident '(' {expression}? {',' expression} ')' ';'
     | 'begin' {statement ';'} 'end'
-    | 'if' '(' condition ')' statement
+    | 'if' '(' condition ')' statement {'else' statement}?
     | 'while' '(' condition ')' statement
     | 'return' expression ';'
 
