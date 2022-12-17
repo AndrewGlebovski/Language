@@ -55,13 +55,6 @@ do {                                                \
     line++;                                         \
 } while(0)
 
-/// Contructs new stack of local variables, gives it to sequence, then free it
-#define READ_SEQ(varlist, prevlist, node)                  \
-VarList varlist = {};                                      \
-var_list_constructor(&varlist, prevlist);                  \
-read_sequence(node, file, &varlist, shift + TAB_SIZE);     \
-var_list_destructor(&varlist)
-
 /// Declarates function for assembler source code output with the same set of parameters
 #define DEFINE_FUNC(func_name) void func_name(const Node *node, FILE *file, VarList *var_list, int shift)
 
@@ -73,9 +66,6 @@ var_list_destructor(&varlist)
 
 /// Current line index in file
 int line = 1;
-
-/// List of the global variables
-Stack global_list = {};
 
 /// List of the functions
 Stack func_list = {};
@@ -108,15 +98,19 @@ DEFINE_FUNC(print_while);
 /// Prints return statement to file
 DEFINE_FUNC(print_return);
 
+/// Prints function parameters in reverse order
+void print_params(const Node *node, FILE *file, int shift, int index_offset);
+
 
 /**
  * \brief Finds variable in list by its name hash
  * \param [in] hash Var name hash
  * \param [in] var_list List of variables
- * \param [in] Max depth of recursive search in var list previous
+ * \param [in] is_global Returns non zero value if variable was declarated global
+ * \param [in] max_depth Max depth of recursive search in var list previous
  * \return Pointer to variable or null
 */
-Variable *find_variable(size_t hash, const VarList *var_list, int max_depth = INT_MAX);
+Variable *find_variable(size_t hash, const VarList *var_list, int *is_global = nullptr, int max_depth = INT_MAX);
 
 
 /**
@@ -141,11 +135,18 @@ size_t string_hash(const char *str);
 /// Prints condition result to file
 void print_cond(const char *cond_op, FILE *file, int shift);
 
-/// Initializes var list stack
-void var_list_constructor(VarList *var_list, VarList *prev);
+/**
+ * \brief Initializes varlist stack and set previous one
+ * \param [in] prev Previous VarList for this one
+ * \return New VarList
+*/
+VarList init_varlist(VarList *prev = nullptr);
 
-/// Destructs var list stack and set new index
-void var_list_destructor(VarList *var_list);
+/**
+ * \brief Destructs varlist stack
+ * \param [in] varlist To free
+*/
+void free_varlist(VarList *varlist);
 
 
 
@@ -157,22 +158,22 @@ int print_program(const Tree *tree, const char *filename) {
 
     int shift = -4;              // Это по факту костыль, чтоб макросы работали без исключений
 
-    stack_constructor(&global_list, 2);
-    stack_constructor(&func_list, 2);
+    VarList global_list = init_varlist();
 
-    VarList var_list = {global_list, nullptr};
+    stack_constructor(&func_list, 2);
 
     PRINTL("JMP START:");
 
-    read_def_sequence(tree -> root, file, &var_list, shift + TAB_SIZE);
-
-    stack_destructor(&global_list);
-    stack_destructor(&func_list);
+    read_def_sequence(tree -> root, file, &global_list, shift + TAB_SIZE);
 
     PRINTL("START:");
-    PRINTL("PUSH %i", global_list.size);
+    PRINTL("PUSH %i", global_list.list.size);
     PRINTL("POP RDX");
     PRINTL("CALL %s:", MAIN_FUNC_NAME);
+
+    free_varlist(&global_list);
+
+    stack_destructor(&func_list);
 
     PRINTL("HLT");
 
@@ -230,7 +231,8 @@ DEFINE_FUNC(read_sequence) {
 DEFINE_FUNC(set_new_var) {
     size_t hash = string_hash(node -> value.var);
 
-    ASSERT(!find_variable(hash, var_list, 1), "Variable %s has already been declarated!", node -> value.var);
+    int is_global = 0;
+    ASSERT(!find_variable(hash, var_list, &is_global, 1), "Variable %s has already been declarated!", node -> value.var);
 
     stack_push(&var_list -> list, {node -> value.var, hash, count_variables(var_list)});
 
@@ -241,6 +243,8 @@ DEFINE_FUNC(set_new_var) {
 void print_params(const Node *node, FILE *file, int shift, int index_offset) {
     if (!node) return;
 
+    ASSERT(node -> type == TYPE_PAR, "Node is not parameter type!");
+
     if (node -> right) print_params(node -> right, file, shift, index_offset + 1);
 
     PRINT("# Function parameter %s", node -> value.var);
@@ -250,15 +254,14 @@ void print_params(const Node *node, FILE *file, int shift, int index_offset) {
 
 
 DEFINE_FUNC(set_new_func) {
-    ASSERT(node -> type == TYPE_DEF, "Node is not def type!");
+    ASSERT(node -> type == TYPE_DEF, "Node is not function define type!");
     
     Function new_func = {node -> value.var, string_hash(node -> value.var), 0};
 
     PRINT("# Function declaration [%-p]", node);
     SKIP_LINE();
 
-    VarList new_varlist = {};
-    var_list_constructor(&new_varlist, var_list);
+    VarList new_varlist = init_varlist(var_list);
 
     PRINTL("FUNC_%s:", node -> value.var);
     SKIP_LINE();
@@ -273,7 +276,7 @@ DEFINE_FUNC(set_new_func) {
     ASSERT(node -> right, "Function has no sequence!");
     read_sequence(node -> right, file, &new_varlist, shift + TAB_SIZE);
 
-    var_list_destructor(&new_varlist);
+    free_varlist(&new_varlist);
 }
 
 
@@ -284,11 +287,12 @@ DEFINE_FUNC(print_exp) {
             break;
         }
         case TYPE_VAR: {
-            Variable *var = find_variable(string_hash(node -> value.var), var_list);
+            int is_global = 0;
+            Variable *var = find_variable(string_hash(node -> value.var), var_list, &is_global);
 
             ASSERT(var, "Variable %s is not declarated in the current scope!", node -> value.var);
 
-            PRINT("PUSH [%i + RDX]", var -> index);
+            PRINT("PUSH [%i%s]", var -> index, (is_global)? "" : " + RDX");
             break;
         }
         case TYPE_CALL: {
@@ -301,6 +305,8 @@ DEFINE_FUNC(print_exp) {
             int arg_count = 0;
 
             for (const Node *arg = node -> left; arg; arg = arg -> right, arg_count++) {
+                ASSERT(arg -> type == TYPE_ARG, "Node is not argument type!");
+
                 PRINT("# Argument node [%-p]", node);
 
                 CALL_FUNC(print_exp, arg -> left);
@@ -367,11 +373,13 @@ DEFINE_FUNC(print_assign) {
     CALL_FUNC(print_exp, node -> right);
 
     ASSERT(node -> left, "No variable to assign!");
-    Variable *var = find_variable(string_hash(node -> left -> value.var), var_list);
+    
+    int is_global = 0;
+    Variable *var = find_variable(string_hash(node -> left -> value.var), var_list, &is_global);
 
     ASSERT(var, "Variable %s is not declarated in the current scope!", node -> left -> value.var);
 
-    PRINTL("POP [%i + RDX]", var -> index);
+    PRINTL("POP [%i%s]", var -> index, (is_global)? "" : " + RDX");
 }
 
 
@@ -391,7 +399,9 @@ DEFINE_FUNC(print_if) {
 
     ASSERT(node -> right, "If has no sequence!");
 
-    READ_SEQ(new_var_list, var_list, node -> right);
+    VarList new_varlist = init_varlist(var_list);
+    read_sequence(node -> right, file, &new_varlist, shift + TAB_SIZE);
+    free_varlist(&new_varlist);
 
     PRINTL("IF_%i_FALSE:", cur_line);
 }
@@ -416,7 +426,9 @@ DEFINE_FUNC(print_while) {
 
     ASSERT(node -> right, "If has no sequence!");
 
-    READ_SEQ(new_var_list, var_list, node -> right);
+    VarList new_varlist = init_varlist(var_list);
+    read_sequence(node -> right, file, &new_varlist, shift + TAB_SIZE);
+    free_varlist(&new_varlist);
 
     PRINTL("JMP CYCLE_%i_ITER", cur_line);
 
@@ -436,10 +448,14 @@ DEFINE_FUNC(print_return) {
 }
 
 
-Variable *find_variable(size_t hash, const VarList *var_list, int max_depth) {
+Variable *find_variable(size_t hash, const VarList *var_list, int *is_global, int max_depth) {
     for(int d = 1; d <= max_depth && var_list; d++, var_list = var_list -> prev)
         for(int i = 0; i < var_list -> list.size; i++)
-            if ((var_list -> list.data)[i].hash == hash) return var_list -> list.data + i;
+            if ((var_list -> list.data)[i].hash == hash) {
+                if (is_global) *is_global = (var_list -> prev == nullptr);
+
+                return var_list -> list.data + i;
+            }
 
     return nullptr;
 }
@@ -484,24 +500,24 @@ void print_cond(const char *cond_op, FILE *file, int shift) {
 }
 
 
-void var_list_constructor(VarList *var_list, VarList *prev) {
-    stack_constructor(&var_list -> list, 2);
-
-    var_list -> prev = prev;
+VarList init_varlist(VarList *prev) {
+    VarList varlist = {{}, prev};
+    
+    stack_constructor(&varlist.list, 2);
+    
+    return varlist;
 }
 
 
-void var_list_destructor(VarList *var_list) {
-    stack_destructor(&var_list -> list);
-
-    var_list -> prev = nullptr;
+void free_varlist(VarList *varlist) {
+    stack_destructor(&varlist -> list);
 }
 
 
 int count_variables(const VarList *varlist) {
     int count = 0;
 
-    for(const VarList *iter = varlist; iter; iter = iter -> prev)
+    for(const VarList *iter = varlist; iter -> prev; iter = iter -> prev)
         count += iter -> list.size;
 
     return count;
