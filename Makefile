@@ -18,7 +18,7 @@ all: front middle back
 
 
 # Завершает сборку front.cpp
-front: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_parser grammar input-output tree text))
+front: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_parser grammar input-output tree text dif dsl))
 	$(COMPILER) $^ -o front.exe
 
 
@@ -58,7 +58,7 @@ $(BIN_DIR)/symbol_parser.o: $(addprefix $(SRC_DIR)/, symbol_parser.cpp symbol_pa
 
 
 # Предварительная сборка grammar.cpp
-$(BIN_DIR)/grammar.o: $(addprefix $(SRC_DIR)/, grammar.cpp grammar.hpp symbol_parser.hpp image_parser.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+$(BIN_DIR)/grammar.o: $(addprefix $(SRC_DIR)/, grammar.cpp grammar.hpp symbol_parser.hpp image_parser.hpp dif.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 

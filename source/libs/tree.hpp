@@ -19,7 +19,8 @@ typedef enum {
     OP_GRE,
     OP_LES,
     OP_GEQ,
-    OP_LEQ
+    OP_LEQ,
+    OP_DIF
 } OPERATORS;
 
 

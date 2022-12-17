@@ -179,6 +179,7 @@ const char *op2str(int op) {
         case OPERATORS::OP_LES: return "LES";
         case OPERATORS::OP_GEQ: return "GEQ";
         case OPERATORS::OP_LEQ: return "LEQ";
+        case OPERATORS::OP_DIF: return "DIF";
         default: return "###";
     }
 }

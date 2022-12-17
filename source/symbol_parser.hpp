@@ -40,7 +40,8 @@ typedef enum {
     SHAPE_LES             = 0x018304D8,
     SHAPE_GEQ             = 0x0099110F,
     SHAPE_LEQ             = 0x0124905E,
-    SHAPE_ELSE            = 0x01B4AD2B
+    SHAPE_ELSE            = 0x01B4AD2B,
+    SHAPE_DIF             = 0x00E53908
 } RESERVED_SHAPES;
 
 

@@ -3,19 +3,21 @@
 program ::= {definition} '\0'
 
 definition ::=
-    'var' ident = expression ';'
+    'var' ident = derivative ';'
     | 'def' ident '(' {ident}? {',' ident} ')' statement
 
 statement ::=
-    'var' ident = expression ';'
-    | ident '=' expression ';'
-    | ident '(' {expression}? {',' expression} ')' ';'
+    'var' ident = derivative ';'
+    | ident '=' derivative ';'
+    | ident '(' {derivative}? {',' derivative} ')' ';'
     | 'begin' {statement ';'} 'end'
     | 'if' '(' condition ')' statement {'else' statement}?
     | 'while' '(' condition ')' statement
-    | 'return' expression ';'
+    | 'return' derivative ';'
 
-condition ::= expression {['==''!=''>''<''>=''<='] expression}?
+condition ::= derivative {['==''!=''>''<''>=''<='] derivative}?
+
+derivative ::= expression | expression 'd' ident
 
 expression ::= term {['+''-'] term}
 
@@ -23,9 +25,9 @@ term ::= unary {['*''/'] unary}
 
 unary ::= '-' factor | factor
 
-factor ::= '(' expression ')' | function | number
+factor ::= '(' condition ')' | function | number
 
-function ::= ident | ident '(' {expression}? {',' expression} ')'
+function ::= ident | ident '(' {condition}? {',' condition} ')'
 
 ident ::= ['A'-'Z']+
 
@@ -57,6 +59,8 @@ Node *get_definition(Node **s);
 Node *get_statement(Node **s);
 
 Node *get_condition(Node **s);
+
+Node *get_derivative(Node **s);
 
 Node *get_expression(Node **s);
 

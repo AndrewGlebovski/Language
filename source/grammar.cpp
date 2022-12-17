@@ -5,6 +5,7 @@
 #include "image_parser.hpp"
 #include "symbol_parser.hpp"
 #include "grammar.hpp"
+#include "dif.hpp"
 
 
 
@@ -49,7 +50,7 @@ Node *get_definition(Node **s) {
             assert(IS_OP(ASS) && "No assign in variable declaration!");
             next(s);
 
-            value -> left -> right = get_expression(s);
+            value -> left -> right = get_derivative(s);
 
             assert(value -> left -> right && "No expression to assign in variable declaration!");
 
@@ -130,7 +131,7 @@ Node *get_statement(Node **s) {
             assert(IS_OP(ASS) && "No = after variable declaration!");
             next(s);
 
-            value -> left -> right = get_expression(s);
+            value -> left -> right = get_derivative(s);
 
             assert(value -> left -> right && "No expression after = in variable declaration!");
 
@@ -142,7 +143,7 @@ Node *get_statement(Node **s) {
         case TYPE_RET: {
             next(s);
 
-            value -> left = create_node(TYPE_RET, {0}, get_expression(s));
+            value -> left = create_node(TYPE_RET, {0}, get_derivative(s));
 
             assert(value -> left -> left && "No expression after return!");
 
@@ -158,7 +159,7 @@ Node *get_statement(Node **s) {
                 assert(IS_OP(ASS) && "No assign operator after variable!");
                 next(s);
 
-                Node *exp = get_expression(s);
+                Node *exp = get_derivative(s);
 
                 assert(exp && "No expression after assign!");
 
@@ -246,13 +247,13 @@ Node *get_ident(Node **s) {
 
 
 Node *get_condition(Node **s) {
-    Node *value = get_expression(s);
+    Node *value = get_derivative(s);
 
     if (IS_TYPE(OP)) {
         Node *op = copy_node(*s);
         next(s);
 
-        op -> left = value, op -> right = get_expression(s);
+        op -> left = value, op -> right = get_derivative(s);
 
         return op;
     }
@@ -261,6 +262,21 @@ Node *get_condition(Node **s) {
 
         return op;
     }
+}
+
+
+Node *get_derivative(Node **s) {
+    Node *value = get_expression(s);
+
+    if (IS_OP(DIF)) {
+        next(s);
+
+        Node *var = get_ident(s);
+
+        value = diff(value, var -> value.var);
+    }
+
+    return value;
 }
 
 
@@ -318,7 +334,7 @@ Node *get_factor(Node **s) {
 
     if (IS_TYPE(BRACKET) && (*s) -> value.op == 1) {
         next(s);
-        value = get_expression(s);
+        value = get_derivative(s);
 
         assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in expression!");
         next(s);
@@ -335,7 +351,7 @@ Node *get_factor(Node **s) {
 
 
 Node *get_function_arguments(Node **s) {
-    Node *value = create_node(TYPE_ARG, {0}, get_expression(s), nullptr);
+    Node *value = create_node(TYPE_ARG, {0}, get_derivative(s), nullptr);
     
     assert(value -> left && "Wrong argument in function call!");
 

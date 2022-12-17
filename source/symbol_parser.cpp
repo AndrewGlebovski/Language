@@ -57,6 +57,8 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
 
             CASE_TOKEN_OP(ASS);
 
+            CASE_TOKEN_OP(DIF);
+
             case SHAPE_DOT: assert(0 && "Single dot!");
 
             case TERMINATOR: token -> type = TYPE_ESC; break; // Escape token
