@@ -14,7 +14,7 @@ SRC_DIR=source
 LIB_DIR=$(SRC_DIR)/libs
 
 
-all: front back
+all: front middle back
 
 
 # Завершает сборку front.cpp
@@ -27,13 +27,23 @@ back: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back input-output tree text progr
 	$(COMPILER) $^ -o back.exe
 
 
+# Завершает сборку middle.cpp
+middle: $(addprefix $(BIN_DIR)/, $(addsuffix .o, middle input-output dif dsl text tree))
+	$(COMPILER) $^ -o middle.exe
+
+
 # Предварительная сборка front.cpp
 $(BIN_DIR)/front.o: $(addprefix $(SRC_DIR)/, front.cpp symbol_parser.hpp image_parser.hpp grammar.hpp input-output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
 # Предварительная сборка back.cpp
-$(BIN_DIR)/back.o: $(addprefix $(SRC_DIR)/, back.cpp input-output.hpp program.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+$(BIN_DIR)/back.o: $(addprefix $(SRC_DIR)/, back.cpp input-output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+	$(COMPILER) $(FLAGS) -c $< -o $@
+
+
+# Предварительная сборка middle.cpp
+$(BIN_DIR)/middle.o: $(addprefix $(SRC_DIR)/, middle.cpp input-output.hpp dif.hpp dsl.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
@@ -59,6 +69,16 @@ $(BIN_DIR)/input-output.o: $(addprefix $(SRC_DIR)/, input-output.cpp input-outpu
 
 # Предварительная сборка program.cpp
 $(BIN_DIR)/program.o: $(addprefix $(SRC_DIR)/, program.cpp program.hpp) $(addprefix $(LIB_DIR)/, tree.hpp stack.hpp text.hpp)
+	$(COMPILER) $(FLAGS) -c $< -o $@
+
+
+# Предварительная сборка dif.cpp
+$(BIN_DIR)/dif.o: $(addprefix $(SRC_DIR)/, dif.cpp dif.hpp dsl.hpp gen.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+	$(COMPILER) $(FLAGS) -c $< -o $@
+
+
+# Предварительная сборка dsl.cpp
+$(BIN_DIR)/dsl.o: $(addprefix $(SRC_DIR)/, dsl.cpp dsl.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
