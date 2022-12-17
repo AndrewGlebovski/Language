@@ -40,7 +40,8 @@ typedef enum {
     TYPE_BRACKET,
     TYPE_CONT,
     TYPE_RET,
-    TYPE_DEF_SEQ
+    TYPE_DEF_SEQ,
+    TYPE_ELSE
 } NODE_TYPES;
 
 

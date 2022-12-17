@@ -46,6 +46,13 @@ Node *get_definition(Node **s) {
 
             value -> left -> type = TYPE_NVAR;
 
+            assert(IS_OP(ASS) && "No assign in variable declaration!");
+            next(s);
+
+            value -> left -> right = get_expression(s);
+
+            assert(value -> left -> right && "No expression to assign in variable declaration!");
+
             assert(IS_TYPE(SEQ) && "No ; after statement!");
             next(s);
 
@@ -120,6 +127,13 @@ Node *get_statement(Node **s) {
 
             value -> left -> type = TYPE_NVAR;
 
+            assert(IS_OP(ASS) && "No = after variable declaration!");
+            next(s);
+
+            value -> left -> right = get_expression(s);
+
+            assert(value -> left -> right && "No expression after = in variable declaration!");
+
             assert(IS_TYPE(SEQ) && "No ; after statement!");
             next(s);
 
@@ -138,16 +152,21 @@ Node *get_statement(Node **s) {
             break;
         }
         case TYPE_VAR: {
-            Node *var = get_ident(s);
+            Node *var = get_function(s);
 
-            assert(IS_OP(ASS) && "No assign operator after variable!");
-            next(s);
+            if (var -> type == TYPE_VAR) {
+                assert(IS_OP(ASS) && "No assign operator after variable!");
+                next(s);
 
-            Node *exp = get_expression(s);
+                Node *exp = get_expression(s);
 
-            assert(exp && "No expression after assign!");
+                assert(exp && "No expression after assign!");
 
-            value -> left = create_node(TYPE_OP, {OP_ASS}, var, exp);
+                value -> left = create_node(TYPE_OP, {OP_ASS}, var, exp);
+            }
+            else {
+                value -> left = var;
+            }
 
             assert(IS_TYPE(SEQ) && "No ; after statement!");
             next(s);

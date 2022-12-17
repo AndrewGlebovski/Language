@@ -3,12 +3,13 @@
 program ::= {definition} '\0'
 
 definition ::=
-    'var' ident ';'
+    'var' ident = expression ';'
     | 'def' ident '(' {ident}? {',' ident} ')' statement
 
 statement ::=
-    'var' ident ';'
+    'var' ident = expression ';'
     | ident '=' expression ';'
+    | ident '(' {expression}? {',' expression} ')' ';'
     | 'begin' {statement ';'} 'end'
     | 'if' '(' condition ')' statement
     | 'while' '(' condition ')' statement

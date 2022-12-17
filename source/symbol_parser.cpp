@@ -31,6 +31,7 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
             CASE_TOKEN_TYPE(SEQ);
             CASE_TOKEN_TYPE(CONT);
             CASE_TOKEN_TYPE(RET);
+            CASE_TOKEN_TYPE(ELSE);
 
             case SHAPE_BRACKET_BEGIN: token -> type = TYPE_BRACKET; token -> value.op = 1; ptr++; break;
             case SHAPE_BRACKET_END:   token -> type = TYPE_BRACKET; token -> value.op = 0; ptr++; break;
