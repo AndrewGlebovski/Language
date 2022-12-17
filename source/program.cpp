@@ -1,14 +1,15 @@
 #include <stdio.h>
+#include <io.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include "libs/tree.hpp"
 #include "libs/stack.hpp"
+#include "libs/text.hpp"
 #include "program.hpp"
 
 
 const int TAB_SIZE = 4;
-
-const char *MAIN_FUNC_NAME = "FUNC_VAR_22B14C_01B8923B";
 
 
 typedef stack_data_t Variable;
@@ -95,6 +96,9 @@ DEFINE_FUNC(print_if);
 /// Prints while operator to file
 DEFINE_FUNC(print_while);
 
+/// Prints function call to file
+DEFINE_FUNC(print_function_call);
+
 /// Prints return statement to file
 DEFINE_FUNC(print_return);
 
@@ -119,6 +123,9 @@ Variable *find_variable(size_t hash, const VarList *var_list, int *is_global = n
  * \return Pointer to function
 */
 Function *find_function(size_t hash);
+
+
+void include_file(const char *filename, FILE *file, int shift);
 
 
 /**
@@ -162,14 +169,27 @@ int print_program(const Tree *tree, const char *filename) {
 
     stack_constructor(&func_list, 2);
 
+    const char *MAIN_FUNC = "VAR_22B14C_01B8923B";
+
+    Function lib[] = {
+        {"VAR_22B14C_00076DC0", string_hash("VAR_22B14C_00076DC0"), 0},
+        {"VAR_22B14C_01435CD4", string_hash("VAR_22B14C_01435CD4"), 1},
+        {"VAR_22B14C_0062909C", string_hash("VAR_22B14C_0062909C"), 1},
+    };
+
+    for (int i = 0; i < (int)(sizeof(lib) / sizeof(Function)); i++) stack_push(&func_list, lib[i]);
+
     PRINTL("JMP START:");
+    SKIP_LINE();
+
+    include_file("stdlib.asm", file, 0);
 
     read_def_sequence(tree -> root, file, &global_list, shift + TAB_SIZE);
 
     PRINTL("START:");
     PRINTL("PUSH %i", global_list.list.size);
     PRINTL("POP RDX");
-    PRINTL("CALL %s:", MAIN_FUNC_NAME);
+    PRINTL("CALL FUNC_%s:", MAIN_FUNC);
 
     free_varlist(&global_list);
 
@@ -180,6 +200,23 @@ int print_program(const Tree *tree, const char *filename) {
     fclose(file);
 
     return 0;
+}
+
+
+void include_file(const char *filename, FILE *file, int shift) {
+    int origin = open(filename, O_RDONLY);
+
+    Text text = {};
+    read_text(&text, origin);
+
+    PRINT("# Included from %s", filename);
+    SKIP_LINE();
+
+    for (String *i = text.lines; i -> str; i++) PRINT("%s", i -> str);
+
+    SKIP_LINE();
+
+    close(origin);
 }
 
 
@@ -215,11 +252,12 @@ DEFINE_FUNC(read_sequence) {
         PRINT("# Sequence node [%-p]", iter);
 
         switch (iter -> left -> type) {
-            case TYPE_NVAR:     CALL_FUNC(set_new_var, iter -> left);       break;
-            case TYPE_OP:       CALL_FUNC(print_assign, iter -> left);      break;
-            case TYPE_IF:       CALL_FUNC(print_if, iter -> left);          break;
-            case TYPE_WHILE:    CALL_FUNC(print_while, iter -> left);       break;
-            case TYPE_RET:      CALL_FUNC(print_return, iter -> left);      break;
+            case TYPE_NVAR:     CALL_FUNC(set_new_var, iter -> left);                               break;
+            case TYPE_OP:       CALL_FUNC(print_assign, iter -> left);                              break;
+            case TYPE_IF:       CALL_FUNC(print_if, iter -> left);                                  break;
+            case TYPE_WHILE:    CALL_FUNC(print_while, iter -> left);                               break;
+            case TYPE_RET:      CALL_FUNC(print_return, iter -> left);                              break;
+            case TYPE_CALL:     CALL_FUNC(print_function_call, iter -> left); PRINTL("POP RBX");    break;
             default: ASSERT(0, "Sequence left child has type %i!", iter -> left -> type);
         }
 
@@ -229,14 +267,23 @@ DEFINE_FUNC(read_sequence) {
 
 
 DEFINE_FUNC(set_new_var) {
+    ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!");
+
     size_t hash = string_hash(node -> value.var);
 
     int is_global = 0;
     ASSERT(!find_variable(hash, var_list, &is_global, 1), "Variable %s has already been declarated!", node -> value.var);
 
-    stack_push(&var_list -> list, {node -> value.var, hash, count_variables(var_list)});
+    Variable new_var = {node -> value.var, hash, count_variables(var_list)};
 
-    PRINT("# Add variable %s!", node -> value.var);
+    stack_push(&var_list -> list, new_var);
+
+    ASSERT(node -> right, "New variable has no expression to assign!");
+
+    CALL_FUNC(print_exp, node -> right);
+    PRINT("POP [%i%s]", new_var.index, (is_global)? "" : " + RDX");
+
+    PRINT("# Add variable %s!", new_var.name);
 }
 
 
@@ -256,6 +303,8 @@ void print_params(const Node *node, FILE *file, int shift, int index_offset) {
 DEFINE_FUNC(set_new_func) {
     ASSERT(node -> type == TYPE_DEF, "Node is not function define type!");
     
+    ASSERT(!find_function(string_hash(node -> value.var)), "Function %s has already been declarated!", node -> value.var);
+
     Function new_func = {node -> value.var, string_hash(node -> value.var), 0};
 
     PRINT("# Function declaration [%-p]", node);
@@ -296,40 +345,9 @@ DEFINE_FUNC(print_exp) {
             break;
         }
         case TYPE_CALL: {
-            PRINT("# Call function node [%-p]", node);
+            shift -= 4;
 
-            Function *func = find_function(string_hash(node -> value.var));
-
-            shift += 4;
-
-            int arg_count = 0;
-
-            for (const Node *arg = node -> left; arg; arg = arg -> right, arg_count++) {
-                ASSERT(arg -> type == TYPE_ARG, "Node is not argument type!");
-
-                PRINT("# Argument node [%-p]", node);
-
-                CALL_FUNC(print_exp, arg -> left);
-
-                SKIP_LINE();
-            }
-
-            ASSERT(arg_count == func -> index, "Function %s expects %i arguments, but got %i!", func -> name, func -> index, arg_count);
-
-            PRINT("PUSH RDX");
-            PRINT("PUSH %i", count_variables(var_list)); 
-            PRINT("ADD");
-            PRINT("POP RDX");
-            SKIP_LINE();
-
-            PRINT("CALL FUNC_%s", node -> value.var);
-
-            SKIP_LINE();
-            PRINT("PUSH RDX");
-            PRINT("PUSH %i", count_variables(var_list)); 
-            PRINT("SUB");
-            PRINT("POP RDX");
-            SKIP_LINE();
+            CALL_FUNC(print_function_call, node);
 
             break;
         }
@@ -397,13 +415,19 @@ DEFINE_FUNC(print_if) {
 
     SKIP_LINE();
 
-    ASSERT(node -> right, "If has no sequence!");
+    ASSERT(node -> right -> left, "If has no sequence after it!");
 
     VarList new_varlist = init_varlist(var_list);
-    read_sequence(node -> right, file, &new_varlist, shift + TAB_SIZE);
+    read_sequence(node -> right -> left, file, &new_varlist, shift + TAB_SIZE);
     free_varlist(&new_varlist);
 
     PRINTL("IF_%i_FALSE:", cur_line);
+
+    if (node -> right -> right) {
+        new_varlist = init_varlist(var_list);
+        read_sequence(node -> right -> left, file, &new_varlist, shift + TAB_SIZE);
+        free_varlist(&new_varlist);
+    }
 }
 
 
@@ -416,7 +440,7 @@ DEFINE_FUNC(print_while) {
 
     PRINTL("CYCLE_%i_ITER:", cur_line);
 
-    ASSERT(node -> left, "If has no condition!");
+    ASSERT(node -> left, "While has no condition!");
     CALL_FUNC(print_exp, node -> left);
 
     PRINTL("PUSH 0");
@@ -424,7 +448,7 @@ DEFINE_FUNC(print_while) {
 
     SKIP_LINE();
 
-    ASSERT(node -> right, "If has no sequence!");
+    ASSERT(node -> right, "While has no sequence after it!");
 
     VarList new_varlist = init_varlist(var_list);
     read_sequence(node -> right, file, &new_varlist, shift + TAB_SIZE);
@@ -433,6 +457,48 @@ DEFINE_FUNC(print_while) {
     PRINTL("JMP CYCLE_%i_ITER", cur_line);
 
     PRINTL("CYCLE_%i_FALSE:", cur_line);
+}
+
+
+DEFINE_FUNC(print_function_call) {
+    ASSERT(node -> type == TYPE_CALL, "Function call expect type %i, but %i got!", TYPE_CALL, node -> type);
+
+    PRINT("# Call function node [%-p]", node);
+
+    Function *func = find_function(string_hash(node -> value.var));
+
+    ASSERT(func, "Function %s was not declarated in the current scope!", node -> value.var);
+
+    shift += 4;
+
+    int arg_count = 0;
+
+    for (const Node *arg = node -> left; arg; arg = arg -> right, arg_count++) {
+        ASSERT(arg -> type == TYPE_ARG, "Node is not argument type!");
+
+        PRINT("# Argument node [%-p]", node);
+
+        CALL_FUNC(print_exp, arg -> left);
+
+        SKIP_LINE();
+    }
+
+    ASSERT(arg_count == func -> index, "Function %s expects %i arguments, but got %i!", func -> name, func -> index, arg_count);
+
+    PRINT("PUSH RDX");
+    PRINT("PUSH %i", count_variables(var_list)); 
+    PRINT("ADD");
+    PRINT("POP RDX");
+    SKIP_LINE();
+
+    PRINT("CALL FUNC_%s", node -> value.var);
+
+    SKIP_LINE();
+    PRINT("PUSH RDX");
+    PRINT("PUSH %i", count_variables(var_list)); 
+    PRINT("SUB");
+    PRINT("POP RDX");
+    SKIP_LINE();
 }
 
 

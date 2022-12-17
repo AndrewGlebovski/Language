@@ -58,7 +58,7 @@ $(BIN_DIR)/input-output.o: $(addprefix $(SRC_DIR)/, input-output.cpp input-outpu
 
 
 # Предварительная сборка program.cpp
-$(BIN_DIR)/program.o: $(addprefix $(SRC_DIR)/, program.cpp program.hpp) $(addprefix $(LIB_DIR)/, tree.hpp stack.hpp)
+$(BIN_DIR)/program.o: $(addprefix $(SRC_DIR)/, program.cpp program.hpp) $(addprefix $(LIB_DIR)/, tree.hpp stack.hpp text.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
