@@ -10,7 +10,7 @@ typedef enum {
     SHAPE_THREE           = 0x00641906,
     SHAPE_FOUR            = 0x0084394A,
     SHAPE_FIVE            = 0x0064184E,
-    SHAPE_SIX             = 0x00E5184E,
+    SHAPE_SIX             = 0x00E5384E,
     SHAPE_SEVEN           = 0x0022221E,
     SHAPE_EIGHT           = 0x00C9324C,
     SHAPE_NINE            = 0x00E4394E,

@@ -175,6 +175,8 @@ int print_program(const Tree *tree, const char *filename) {
         {"VAR_22B14C_00076DC0", string_hash("VAR_22B14C_00076DC0"), 0},
         {"VAR_22B14C_01435CD4", string_hash("VAR_22B14C_01435CD4"), 1},
         {"VAR_22B14C_0062909C", string_hash("VAR_22B14C_0062909C"), 1},
+        {"VAR_22B14C_0013A52700E2108E01151151", string_hash("VAR_22B14C_0013A52700E2108E01151151"), 3},
+        {"VAR_22B14C_0194AD2B", string_hash("VAR_22B14C_0194AD2B"), 0},
     };
 
     for (int i = 0; i < (int)(sizeof(lib) / sizeof(Function)); i++) stack_push(&func_list, lib[i]);
@@ -426,13 +428,16 @@ DEFINE_FUNC(print_if) {
     read_sequence(node -> right -> left, file, &new_varlist, shift + TAB_SIZE);
     free_varlist(&new_varlist);
 
+    PRINTL("JMP IF_%i_END", cur_line);
     PRINTL("IF_%i_FALSE:", cur_line);
 
     if (node -> right -> right) {
         new_varlist = init_varlist(var_list);
-        read_sequence(node -> right -> left, file, &new_varlist, shift + TAB_SIZE);
+        read_sequence(node -> right -> right, file, &new_varlist, shift + TAB_SIZE);
         free_varlist(&new_varlist);
     }
+
+    PRINTL("IF_%i_END:", cur_line);
 }
 
 

@@ -137,16 +137,6 @@ int to_digit(unsigned int shape) {
 
 int is_reserved_shape(unsigned int shape) {
     switch (shape & SHAPE_BTIMASK) {
-        RETURN_ONE(SHAPE_ZERO)
-        RETURN_ONE(SHAPE_ONE)
-        RETURN_ONE(SHAPE_TWO)
-        RETURN_ONE(SHAPE_THREE)
-        RETURN_ONE(SHAPE_FOUR)
-        RETURN_ONE(SHAPE_FIVE)
-        RETURN_ONE(SHAPE_SIX)
-        RETURN_ONE(SHAPE_SEVEN)
-        RETURN_ONE(SHAPE_EIGHT)
-        RETURN_ONE(SHAPE_NINE)
         RETURN_ONE(SHAPE_SEQ)
         RETURN_ONE(SHAPE_CONT)
         RETURN_ONE(SHAPE_RET)

@@ -258,9 +258,7 @@ Node *get_condition(Node **s) {
         return op;
     }
     else {
-        Node *op = create_node(TYPE_OP, {OP_NEQ}, value, create_node(TYPE_NUM, {0}));
-
-        return op;
+        return value;
     }
 }
 
@@ -334,7 +332,7 @@ Node *get_factor(Node **s) {
 
     if (IS_TYPE(BRACKET) && (*s) -> value.op == 1) {
         next(s);
-        value = get_derivative(s);
+        value = get_condition(s);
 
         assert(IS_TYPE(BRACKET) && (*s) -> value.op == 0 && "No closing bracket in expression!");
         next(s);
