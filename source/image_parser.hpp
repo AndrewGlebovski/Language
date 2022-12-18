@@ -108,3 +108,23 @@ void print_symbol(const Symbol *symbol);
  * \return New buffer size after cleaning
 */
 int remove_empty_symbols(Symbol *buffer, int buffer_size);
+
+
+/**
+ * \brief Converts array of symbols to array of pixels
+ * \param [in] width        Image width in symbols
+ * \param [in] height       Image height in symbols
+ * \param [in] symbols      Array of symbols to parse
+ * \return Array of pixels with size width * height * 36
+*/
+Pixel *symbols_to_pixels(int width, int height, const Symbol *symbols);
+
+
+/**
+ * \brief Creates image from pixel array
+ * \param [in] filename Path to image
+ * \param [in] width    Image width in pixels
+ * \param [in] height   Image height in pixels
+ * \param [in] pixels   Array of pixels to work with
+*/
+void write_image(const char *filename, int width, int height, const Pixel *pixels);

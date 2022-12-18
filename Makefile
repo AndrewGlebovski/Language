@@ -48,7 +48,7 @@ $(BIN_DIR)/middle.o: $(addprefix $(SRC_DIR)/, middle.cpp input-output.hpp dif.hp
 
 
 # Предварительная сборка image_parser.cpp
-$(BIN_DIR)/image_parser.o: $(addprefix $(SRC_DIR)/, image_parser.cpp image_parser.hpp stb_image.h)
+$(BIN_DIR)/image_parser.o: $(addprefix $(SRC_DIR)/, image_parser.cpp image_parser.hpp stb_image.h stb_image_write.h)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
