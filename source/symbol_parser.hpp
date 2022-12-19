@@ -83,3 +83,6 @@ void print_tokens(const Node *tokens);
  * \param [in] tokens To free
 */
 void free_tokens(Node *tokens);
+
+
+int draw_program(const Tree *tree, Symbol *symbols);

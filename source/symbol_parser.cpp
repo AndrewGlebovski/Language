@@ -195,3 +195,324 @@ void free_tokens(Node *tokens) {
     
     free(tokens);
 }
+
+
+const Pixel GREEN_PIXEL = {34, 177, 77, 255};
+
+void next(Symbol **s);
+
+void draw_ident(const char *str, Symbol **s);
+
+void draw_number(double num, Symbol **s);
+
+void draw_skip(int shift, Symbol **s);
+
+void draw_define_sequence(const Node *node, Symbol **s);
+
+void draw_sequence(const Node *node, Symbol **s, int shift);
+
+void draw_new_variable(const Node *node, Symbol **s);
+
+void draw_new_function(const Node *node, Symbol **s, int shift);
+
+void draw_expression(const Node *node, Symbol **s);
+
+void draw_assign(const Node *node, Symbol **s);
+
+void draw_if(const Node *node, Symbol **s, int shift);
+
+void draw_while(const Node *node, Symbol **s, int shift);
+
+void draw_function_call(const Node *node, Symbol **s);
+
+void draw_return(const Node *node, Symbol **s);
+
+
+
+
+void next(Symbol **s) {
+    (*s) += 1;
+}
+
+
+void draw_ident(const char *str, Symbol **s) {
+    int offset = 0;
+    Pixel color = GREEN_PIXEL;
+
+    sscanf(str, "VAR_%2hhx%2hhx%2hhx_%n", &color.r, &color.g, &color.b, &offset);
+
+    for (const char *i = str + offset; *i; i += 8, next(s)) {
+        unsigned int shape = 0;
+
+        sscanf(i, "%8x", &shape);
+
+        **s = {color, shape, 0, 0};
+    }
+}
+
+
+void draw_number(double num, Symbol **s) {
+    char str[25] = "";
+    sprintf(str, "%lg", num);
+
+    for (char *i = str; *i; i++, next(s)) {
+        switch (*i) {
+            case '0': **s = {GREEN_PIXEL, SHAPE_ZERO, 0, 0}; break;
+            case '1': **s = {GREEN_PIXEL, SHAPE_ONE, 0, 0}; break;
+            case '2': **s = {GREEN_PIXEL, SHAPE_TWO, 0, 0}; break;
+            case '3': **s = {GREEN_PIXEL, SHAPE_THREE, 0, 0}; break;
+            case '4': **s = {GREEN_PIXEL, SHAPE_FOUR, 0, 0}; break;
+            case '5': **s = {GREEN_PIXEL, SHAPE_FIVE, 0, 0}; break;
+            case '6': **s = {GREEN_PIXEL, SHAPE_SIX, 0, 0}; break;
+            case '7': **s = {GREEN_PIXEL, SHAPE_SEVEN, 0, 0}; break;
+            case '8': **s = {GREEN_PIXEL, SHAPE_EIGHT, 0, 0}; break;
+            case '9': **s = {GREEN_PIXEL, SHAPE_NINE, 0, 0}; break;
+            case '.': **s = {GREEN_PIXEL, SHAPE_DOT, 0, 0}; break;
+            default: break;
+        }
+    }
+}
+
+
+void draw_skip(int shift, Symbol **s) {
+    for (int i = 0; i < shift; i++, next(s))
+        **s = {{255, 255, 255, 255}, 0, 0, 0};
+}
+
+
+int draw_program(const Tree *tree, Symbol *symbols) {
+    Symbol *s = symbols;
+
+    draw_define_sequence(tree -> root, &s);
+
+    *s = {GREEN_PIXEL, TERMINATOR, 0, 0};
+
+    return 0;
+}
+
+
+void draw_define_sequence(const Node *node, Symbol **s) {
+    for (const Node *iter = node; iter; iter = iter -> right){
+        switch (iter -> left -> type) {
+            case TYPE_NVAR:     draw_new_variable(iter -> left, s); break;
+            case TYPE_DEF:      draw_new_function(iter -> left, s, 0); break;
+            default: return;
+        }
+    }
+}
+
+
+void draw_sequence(const Node *node, Symbol **s, int shift) {
+    for (const Node *iter = node; iter; iter = iter -> right){
+        draw_skip(shift, s);
+
+        switch (iter -> left -> type) {
+            case TYPE_NVAR:     draw_new_variable(iter -> left, s); break;
+            case TYPE_OP:       draw_assign(iter -> left, s); break;
+            case TYPE_IF:       draw_if(iter -> left, s, shift); break;
+            case TYPE_WHILE:    draw_while(iter -> left, s, shift); break;
+            case TYPE_RET:      draw_return(iter -> left, s); break;
+            case TYPE_CALL:     draw_function_call(iter -> left, s); **s = {GREEN_PIXEL, SHAPE_SEQ, 0, 0}; next(s); break;
+            default: printf("WTF!\n"); return;
+        }
+    }
+}
+
+
+void draw_new_variable(const Node *node, Symbol **s) {
+    **s = {GREEN_PIXEL, SHAPE_NVAR, 0, 0};
+    next(s);
+
+    **s = {GREEN_PIXEL, SHAPE_ASS, 0, 0};
+    next(s);
+
+    draw_expression(node -> right, s);
+
+    **s = {GREEN_PIXEL, SHAPE_SEQ, 0, 0};
+    next(s);
+}
+
+
+void draw_new_function(const Node *node, Symbol **s, int shift) {
+    **s = {GREEN_PIXEL, SHAPE_DEF, 0, 0};
+    next(s);
+
+    draw_ident(node -> value.var, s);
+
+    **s = {GREEN_PIXEL, SHAPE_BRACKET_BEGIN, 0, 0};
+    next(s);
+
+    if (node -> left) {
+        draw_ident(node -> left -> value.var, s);
+
+        for (const Node *arg = node -> left -> right; arg; arg = arg -> right) {
+            **s = {GREEN_PIXEL, SHAPE_CONT, 0, 0};
+            next(s);
+
+            draw_ident(arg -> value.var, s);
+        }
+    }
+
+    **s = {GREEN_PIXEL, SHAPE_BRACKET_END, 0, 0};
+    next(s);
+
+    **s = {GREEN_PIXEL, SHAPE_BLOCK_BEGIN, 0, 0};
+    next(s);
+
+    draw_sequence(node -> right, s, shift + 1);
+
+    **s = {GREEN_PIXEL, SHAPE_BLOCK_END, 0, 0};
+    next(s);
+}
+
+
+void draw_expression(const Node *node, Symbol **s) {
+    switch(node -> type) {
+        case TYPE_NUM: {
+            draw_number(node -> value.dbl, s);
+
+            break;
+        }
+        case TYPE_VAR: {
+            draw_ident(node -> value.var, s);
+
+            break;
+        }
+        case TYPE_CALL: {
+            draw_function_call(node, s);
+
+            break;
+        }
+        case TYPE_OP: {
+            draw_expression(node -> left, s);
+
+            switch (node -> value.op) {
+                case OP_ADD: **s = {GREEN_PIXEL, SHAPE_ADD, 0, 0}; break;
+                case OP_SUB: **s = {GREEN_PIXEL, SHAPE_SUB, 0, 0}; break;
+                case OP_MUL: **s = {GREEN_PIXEL, SHAPE_MUL, 0, 0}; break;
+                case OP_DIV: **s = {GREEN_PIXEL, SHAPE_DIV, 0, 0}; break;
+
+                case OP_EQ:  **s = {GREEN_PIXEL, SHAPE_EQ, 0, 0}; break;
+                case OP_NEQ: **s = {GREEN_PIXEL, SHAPE_NEQ, 0, 0}; break;
+                case OP_GRE: **s = {GREEN_PIXEL, SHAPE_GRE, 0, 0}; break;
+                case OP_LES: **s = {GREEN_PIXEL, SHAPE_LES, 0, 0}; break;
+                case OP_GEQ: **s = {GREEN_PIXEL, SHAPE_GEQ, 0, 0}; break;
+                case OP_LEQ: **s = {GREEN_PIXEL, SHAPE_LEQ, 0, 0}; break;
+
+                default: return;
+            }
+
+            next(s);
+
+            draw_expression(node -> right, s);
+
+            break;
+        }
+        default: return;
+    }
+}
+
+
+void draw_assign(const Node *node, Symbol **s) {
+    draw_ident(node -> left -> value.var, s);
+
+    **s = {GREEN_PIXEL, SHAPE_ASS, 0, 0};
+    next(s);
+
+    draw_expression(node -> right, s);
+
+    putchar('t');
+
+    **s = {GREEN_PIXEL, SHAPE_SEQ, 0, 0};
+    next(s);
+}
+
+
+void draw_if(const Node *node, Symbol **s, int shift) {
+    **s = {GREEN_PIXEL, SHAPE_IF, 0, 0};
+    next(s);
+
+    **s = {GREEN_PIXEL, SHAPE_BRACKET_BEGIN, 0, 0};
+    next(s);
+
+    draw_expression(node -> left, s);
+
+    **s = {GREEN_PIXEL, SHAPE_BRACKET_END, 0, 0};
+    next(s);
+
+    **s = {GREEN_PIXEL, SHAPE_BLOCK_BEGIN, 0, 0};
+    next(s);
+
+    draw_sequence(node -> right -> left, s, shift + 1);
+
+    **s = {GREEN_PIXEL, SHAPE_BLOCK_END, 0, 0};
+    next(s);
+
+    if (node -> right -> right) {
+        **s = {GREEN_PIXEL, SHAPE_ELSE, 0, 0};
+        next(s);
+
+        **s = {GREEN_PIXEL, SHAPE_BLOCK_BEGIN, 0, 0};
+        next(s);
+
+        draw_sequence(node -> right -> right, s, shift + 1);
+
+        **s = {GREEN_PIXEL, SHAPE_BLOCK_END, 0, 0};
+        next(s);
+    }
+}
+
+
+void draw_while(const Node *node, Symbol **s, int shift) {
+    **s = {GREEN_PIXEL, SHAPE_WHILE, 0, 0};
+    next(s);
+
+    **s = {GREEN_PIXEL, SHAPE_BRACKET_BEGIN, 0, 0};
+    next(s);
+
+    draw_expression(node -> left, s);
+
+    **s = {GREEN_PIXEL, SHAPE_BRACKET_END, 0, 0};
+    next(s);
+
+    **s = {GREEN_PIXEL, SHAPE_BLOCK_BEGIN, 0, 0};
+    next(s);
+
+    draw_sequence(node -> right, s, shift + 1);
+
+    **s = {GREEN_PIXEL, SHAPE_BLOCK_END, 0, 0};
+    next(s);
+}
+
+
+void draw_function_call(const Node *node, Symbol **s) {
+    draw_ident(node -> value.var, s);
+
+    **s = {GREEN_PIXEL, SHAPE_BRACKET_BEGIN, 0, 0};
+    next(s);
+
+    if (node -> left) {
+        draw_expression(node -> left, s);
+
+        for (const Node *arg = node -> left -> right; arg; arg = arg -> right) {
+            **s = {GREEN_PIXEL, SHAPE_CONT, 0, 0};
+            next(s);
+
+            draw_expression(arg, s);
+        }
+    }
+
+    **s = {GREEN_PIXEL, SHAPE_BRACKET_END, 0, 0};
+    next(s);
+}
+
+
+void draw_return(const Node *node, Symbol **s) {
+    **s = {GREEN_PIXEL, SHAPE_RET, 0, 0};
+    next(s);
+
+    draw_expression(node -> left, s);
+
+    **s = {GREEN_PIXEL, SHAPE_SEQ, 0, 0};
+    next(s);
+}
