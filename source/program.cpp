@@ -9,6 +9,7 @@
 #include "program.hpp"
 
 
+/// Code offset in assembler output
 const int TAB_SIZE = 4;
 
 
@@ -28,7 +29,7 @@ do                                      \
     if (!(condition)) {                 \
         printf("[%-p] ", node);         \
         printf(__VA_ARGS__);            \
-        abort();                        \
+        exit(1);                        \
     }                                   \
 } while (0)
 
@@ -56,9 +57,6 @@ do {                                                \
     line++;                                         \
 } while(0)
 
-/// Declarates function for assembler source code output with the same set of parameters
-#define DEFINE_FUNC(func_name) void func_name(const Node *node, FILE *file, VarList *var_list, int shift)
-
 /// Calls function for assembler source code output with only argument
 #define CALL_FUNC(func_name, node_arg) func_name(node_arg, file, var_list, shift + TAB_SIZE)
 
@@ -73,37 +71,37 @@ Stack func_list = {};
 
 
 /// Reads definition sequence type node and prints result to file
-DEFINE_FUNC(read_def_sequence);
+void read_def_sequence(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Reads sequence type node and prints result to file
-DEFINE_FUNC(read_sequence);
+void read_sequence(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Add new variable to variable list of the current scope
-DEFINE_FUNC(set_new_var);
+void add_variable(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Add new function to function list of the current scope
-DEFINE_FUNC(set_new_func);
+void add_function(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Prints expression to file
-DEFINE_FUNC(print_exp);
+void add_expression(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Prints variable assign operation to file
-DEFINE_FUNC(print_assign);
+void add_assign(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Prints if operator to file
-DEFINE_FUNC(print_if);
+void add_if(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Prints while operator to file
-DEFINE_FUNC(print_while);
+void add_while(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Prints function call to file
-DEFINE_FUNC(print_function_call);
+void add_function_call(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Prints return statement to file
-DEFINE_FUNC(print_return);
+void add_return(const Node *node, FILE *file, VarList *var_list, int shift);
 
 /// Prints function parameters in reverse order
-void print_params(const Node *node, FILE *file, int shift, int index_offset);
+void add_parameters(const Node *node, FILE *file, int shift, int index_offset);
 
 
 /**
@@ -125,6 +123,12 @@ Variable *find_variable(size_t hash, const VarList *var_list, int *is_global = n
 Function *find_function(size_t hash);
 
 
+/**
+ * \brief Includes file content in assembler code
+ * \param [in]  filename    Path to input file
+ * \param [out] file        Output file pointer
+ * \param [in]  shift       Line offset value
+*/
 void include_file(const char *filename, FILE *file, int shift);
 
 
@@ -227,7 +231,7 @@ void include_file(const char *filename, FILE *file, int shift) {
 }
 
 
-DEFINE_FUNC(read_def_sequence) {
+void read_def_sequence(const Node *node, FILE *file, VarList *var_list, int shift) {
     for (const Node *iter = node; iter; iter = iter -> right){
         ASSERT(iter, "Definition sequence is null!");
 
@@ -238,8 +242,8 @@ DEFINE_FUNC(read_def_sequence) {
         PRINT("# Definition sequence node [%-p]", iter);
 
         switch (iter -> left -> type) {
-            case TYPE_NVAR:     CALL_FUNC(set_new_var, iter -> left);       break;
-            case TYPE_DEF:      CALL_FUNC(set_new_func, iter -> left);      break;
+            case TYPE_NVAR:     CALL_FUNC(add_variable, iter -> left);       break;
+            case TYPE_DEF:      CALL_FUNC(add_function, iter -> left);      break;
             default: ASSERT(0, "Definition sequence left child has type %i!", iter -> left -> type);
         }
 
@@ -248,7 +252,7 @@ DEFINE_FUNC(read_def_sequence) {
 }
 
 
-DEFINE_FUNC(read_sequence) {
+void read_sequence(const Node *node, FILE *file, VarList *var_list, int shift) {
     for (const Node *iter = node; iter; iter = iter -> right){
         ASSERT(iter, "Sequence is null!");
 
@@ -259,12 +263,12 @@ DEFINE_FUNC(read_sequence) {
         PRINT("# Sequence node [%-p]", iter);
 
         switch (iter -> left -> type) {
-            case TYPE_NVAR:     CALL_FUNC(set_new_var, iter -> left);                               break;
-            case TYPE_OP:       CALL_FUNC(print_assign, iter -> left);                              break;
-            case TYPE_IF:       CALL_FUNC(print_if, iter -> left);                                  break;
-            case TYPE_WHILE:    CALL_FUNC(print_while, iter -> left);                               break;
-            case TYPE_RET:      CALL_FUNC(print_return, iter -> left);                              break;
-            case TYPE_CALL:     CALL_FUNC(print_function_call, iter -> left); PRINTL("POP RBX");    break;
+            case TYPE_NVAR:     CALL_FUNC(add_variable, iter -> left);                               break;
+            case TYPE_OP:       CALL_FUNC(add_assign, iter -> left);                              break;
+            case TYPE_IF:       CALL_FUNC(add_if, iter -> left);                                  break;
+            case TYPE_WHILE:    CALL_FUNC(add_while, iter -> left);                               break;
+            case TYPE_RET:      CALL_FUNC(add_return, iter -> left);                              break;
+            case TYPE_CALL:     CALL_FUNC(add_function_call, iter -> left); PRINTL("POP RBX");    break;
             default: ASSERT(0, "Sequence left child has type %i!", iter -> left -> type);
         }
 
@@ -273,7 +277,7 @@ DEFINE_FUNC(read_sequence) {
 }
 
 
-DEFINE_FUNC(set_new_var) {
+void add_variable(const Node *node, FILE *file, VarList *var_list, int shift) {
     ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!");
 
     size_t hash = string_hash(node -> value.var);
@@ -287,19 +291,19 @@ DEFINE_FUNC(set_new_var) {
 
     ASSERT(node -> right, "New variable has no expression to assign!");
 
-    CALL_FUNC(print_exp, node -> right);
+    CALL_FUNC(add_expression, node -> right);
     PRINT("POP [%i%s]", new_var.index, (is_global)? "" : " + RDX");
 
     PRINT("# Add variable %s!", new_var.name);
 }
 
 
-void print_params(const Node *node, FILE *file, int shift, int index_offset) {
+void add_parameters(const Node *node, FILE *file, int shift, int index_offset) {
     if (!node) return;
 
     ASSERT(node -> type == TYPE_PAR, "Node is not parameter type!");
 
-    if (node -> right) print_params(node -> right, file, shift, index_offset + 1);
+    if (node -> right) add_parameters(node -> right, file, shift, index_offset + 1);
 
     PRINT("# Function parameter %s", node -> value.var);
     PRINTL("POP [%i + RDX]", index_offset);
@@ -307,7 +311,7 @@ void print_params(const Node *node, FILE *file, int shift, int index_offset) {
 }
 
 
-DEFINE_FUNC(set_new_func) {
+void add_function(const Node *node, FILE *file, VarList *var_list, int shift) {
     ASSERT(node -> type == TYPE_DEF, "Node is not function define type!");
     
     ASSERT(!find_function(string_hash(node -> value.var)), "Function %s has already been declarated!", node -> value.var);
@@ -325,7 +329,7 @@ DEFINE_FUNC(set_new_func) {
     for (const Node *par = node -> left; par; par = par -> right, new_func.index++) 
         stack_push(&new_varlist.list, {par -> value.var, string_hash(par -> value.var), new_func.index});
 
-    print_params(node -> left, file, shift + TAB_SIZE, 0);
+    add_parameters(node -> left, file, shift + TAB_SIZE, 0);
 
     stack_push(&func_list, new_func);
 
@@ -336,7 +340,7 @@ DEFINE_FUNC(set_new_func) {
 }
 
 
-DEFINE_FUNC(print_exp) {
+void add_expression(const Node *node, FILE *file, VarList *var_list, int shift) {
     switch(node -> type) {
         case TYPE_NUM: {
             PRINT("PUSH %.3lg", node -> value.dbl);
@@ -354,15 +358,15 @@ DEFINE_FUNC(print_exp) {
         case TYPE_CALL: {
             shift -= 4;
 
-            CALL_FUNC(print_function_call, node);
+            CALL_FUNC(add_function_call, node);
 
             break;
         }
         case TYPE_OP: {
             PRINT("# Expression node [%-p]", node);
 
-            CALL_FUNC(print_exp, node -> left);
-            CALL_FUNC(print_exp, node -> right);
+            CALL_FUNC(add_expression, node -> left);
+            CALL_FUNC(add_expression, node -> right);
 
             shift += 4;
 
@@ -389,13 +393,13 @@ DEFINE_FUNC(print_exp) {
 }
 
 
-DEFINE_FUNC(print_assign) {
+void add_assign(const Node *node, FILE *file, VarList *var_list, int shift) {
     PRINT("# Assign node [%-p]", node);
 
     ASSERT(node -> type == TYPE_OP && node -> value.op == OP_ASS, "Assign expect op %i, but %i got!", OP_ASS, node -> value.op);
 
     ASSERT(node -> right, "No expression to assign!");
-    CALL_FUNC(print_exp, node -> right);
+    CALL_FUNC(add_expression, node -> right);
 
     ASSERT(node -> left, "No variable to assign!");
     
@@ -408,13 +412,13 @@ DEFINE_FUNC(print_assign) {
 }
 
 
-DEFINE_FUNC(print_if) {
+void add_if(const Node *node, FILE *file, VarList *var_list, int shift) {
     ASSERT(node -> type == TYPE_IF, "If expect type %i, but %i got!", TYPE_IF, node -> type);
 
     PRINT("# If node [%-p]", node);
 
     ASSERT(node -> left, "If has no condition!");
-    CALL_FUNC(print_exp, node -> left);
+    CALL_FUNC(add_expression, node -> left);
 
     PRINTL("PUSH 0");
     int cur_line = line;
@@ -441,7 +445,7 @@ DEFINE_FUNC(print_if) {
 }
 
 
-DEFINE_FUNC(print_while) {
+void add_while(const Node *node, FILE *file, VarList *var_list, int shift) {
     ASSERT(node -> type == TYPE_WHILE, "While expect type %i, but %i got!", TYPE_WHILE, node -> type);
 
     PRINT("# While node [%-p]", node);
@@ -451,7 +455,7 @@ DEFINE_FUNC(print_while) {
     PRINTL("CYCLE_%i_ITER:", cur_line);
 
     ASSERT(node -> left, "While has no condition!");
-    CALL_FUNC(print_exp, node -> left);
+    CALL_FUNC(add_expression, node -> left);
 
     PRINTL("PUSH 0");
     PRINTL("JE CYCLE_%i_FALSE", cur_line);
@@ -470,7 +474,7 @@ DEFINE_FUNC(print_while) {
 }
 
 
-DEFINE_FUNC(print_function_call) {
+void add_function_call(const Node *node, FILE *file, VarList *var_list, int shift) {
     ASSERT(node -> type == TYPE_CALL, "Function call expect type %i, but %i got!", TYPE_CALL, node -> type);
 
     PRINT("# Call function node [%-p]", node);
@@ -488,7 +492,7 @@ DEFINE_FUNC(print_function_call) {
 
         PRINT("# Argument node [%-p]", node);
 
-        CALL_FUNC(print_exp, arg -> left);
+        CALL_FUNC(add_expression, arg -> left);
 
         SKIP_LINE();
     }
@@ -512,13 +516,13 @@ DEFINE_FUNC(print_function_call) {
 }
 
 
-DEFINE_FUNC(print_return) {
+void add_return(const Node *node, FILE *file, VarList *var_list, int shift) {
     ASSERT(node -> type == TYPE_RET, "Return expect type %i, but %i got!", TYPE_RET, node -> type);
 
     PRINT("# Return node [%-p]", node);
 
     ASSERT(node -> left, "Return has no expression!");
-    CALL_FUNC(print_exp, node -> left);
+    CALL_FUNC(add_expression, node -> left);
 
     PRINTL("RET");
 }
