@@ -1,8 +1,17 @@
 #include <stdio.h>
-#include <io.h>
+
+#if defined(_WIN32) || defined(_WIN64)
+    #include <io.h>
+#elif __linux__
+    #include <unistd.h>
+#else
+    #error "Your system case is not defined!"
+#endif
+
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include "libs/tree.hpp"
 #include "libs/stack.hpp"
 #include "libs/text.hpp"

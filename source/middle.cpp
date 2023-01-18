@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
 
     write_tree(&tree, argv[1]);
 
-    printf("Middlend!");
+    printf("Middlend!\n");
 
     return 0;
 }

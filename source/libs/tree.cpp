@@ -3,6 +3,9 @@
 #include "tree.hpp"
 
 
+#define MAX_FILE_PATH 512
+
+
 #define ASSERT(condition, message, error)                                    \
 do {                                                                         \
     if (!(condition)) {                                                      \
@@ -237,7 +240,7 @@ void write_record(FILE *file, Node *node) {
 
 
 int generate_image(const char *input, const char *output) {
-    char cmd[20 + 2 * _MAX_PATH] = "";
+    char cmd[20 + 2 * MAX_FILE_PATH] = "";
 
     sprintf(cmd, "dot %s -o %s -Tpng", input, output);
 
@@ -246,7 +249,7 @@ int generate_image(const char *input, const char *output) {
 
 
 int show_image(const char *filepath) {
-    char cmd[10 + _MAX_PATH] = "";
+    char cmd[10 + MAX_FILE_PATH] = "";
 
     sprintf(cmd, "start %s", filepath);
 
@@ -264,7 +267,7 @@ int show_image(const char *filepath) {
 int graphic_dump(Tree *tree) {
     static int dump_index = 0;
 
-    char dot[FILENAME_MAX] = "", img[FILENAME_MAX] = "";
+    char dot[MAX_FILE_PATH] = "", img[MAX_FILE_PATH] = "";
 
     sprintf(dot, DUMP_DIRECTORY "/" DOT_FILENAME "%i.txt", dump_index);
     sprintf(img, DUMP_DIRECTORY "/" IMG_FILENAME "%i.png", dump_index);

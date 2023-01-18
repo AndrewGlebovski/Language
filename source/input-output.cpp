@@ -1,7 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <io.h>
 #include <fcntl.h>
+
+#if defined(_WIN32) || defined(_WIN64)
+    #include <io.h>
+#elif __linux__
+    #include <unistd.h>
+#else
+    #error "Your system case is not defined!"
+#endif
+
 #include <ctype.h>
 #include <string.h>
 #include "libs/tree.hpp"

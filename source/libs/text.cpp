@@ -3,7 +3,14 @@
  * \brief Text module source
 */
 
-#include <io.h>
+#if defined(_WIN32) || defined(_WIN64)
+    #include <io.h>
+#elif __linux__
+    #include <unistd.h>
+#else
+    #error "Your system case is not defined!"
+#endif
+
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <ctype.h>

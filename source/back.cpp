@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 
     tree_destructor(&tree);
 
-    printf("Backend!");
+    printf("Backend!\n");
 
     return 0;
 }
