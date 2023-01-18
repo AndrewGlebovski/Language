@@ -172,6 +172,9 @@ void free_varlist(VarList *varlist);
 
 
 int print_program(const Tree *tree, const char *filename) {
+    if (!tree) return 1;
+    if (!filename) return 2;
+
     FILE *file = fopen(filename, "w");
 
     line = 1;
