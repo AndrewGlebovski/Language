@@ -259,7 +259,7 @@ int show_image(const char *filepath) {
 }
 
 
-#define DUMP_DIRECTORY "debug"
+#define DUMP_DIRECTORY ""
 #define DOT_FILENAME "dot-"
 #define IMG_FILENAME "img-"
 
@@ -269,8 +269,8 @@ int graphic_dump(Tree *tree) {
 
     char dot[MAX_FILE_PATH] = "", img[MAX_FILE_PATH] = "";
 
-    sprintf(dot, DUMP_DIRECTORY "/" DOT_FILENAME "%i.txt", dump_index);
-    sprintf(img, DUMP_DIRECTORY "/" IMG_FILENAME "%i.png", dump_index);
+    sprintf(dot, DUMP_DIRECTORY DOT_FILENAME "%i.txt", dump_index);
+    sprintf(img, DUMP_DIRECTORY IMG_FILENAME "%i.png", dump_index);
 
     FILE *file = fopen(dot, "w");
 

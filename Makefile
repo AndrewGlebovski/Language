@@ -2,7 +2,7 @@
 COMPILER=g++
 
 # Флаги компиляции
-FLAGS=-Wshadow -Winit-self -Wredundant-decls -Wcast-align -Wundef -Wfloat-equal -Winline -Wunreachable-code -Wmissing-declarations -Wmissing-include-dirs -Wswitch-enum -Wswitch-default -Weffc++ -Wmain -Wextra -Wall -g -pipe -fexceptions -Wcast-qual -Wconversion -Wctor-dtor-privacy -Wempty-body -Wformat-security -Wformat=2 -Wignored-qualifiers -Wlogical-op -Wmissing-field-initializers -Wnon-virtual-dtor -Woverloaded-virtual -Wpointer-arith -Wsign-promo -Wstack-usage=8192 -Wstrict-aliasing -Wstrict-null-sentinel -Wtype-limits -Wwrite-strings -D_DEBUG -D_EJUDGE_CLIENT_
+FLAGS=-Wno-unused-parameter -Wshadow -Winit-self -Wredundant-decls -Wcast-align -Wundef -Wfloat-equal -Winline -Wunreachable-code -Wmissing-declarations -Wmissing-include-dirs -Wswitch-enum -Wswitch-default -Weffc++ -Wmain -Wextra -Wall -g -pipe -fexceptions -Wcast-qual -Wconversion -Wctor-dtor-privacy -Wempty-body -Wformat-security -Wformat=2 -Wignored-qualifiers -Wlogical-op -Wmissing-field-initializers -Wnon-virtual-dtor -Woverloaded-virtual -Wpointer-arith -Wsign-promo -Wstack-usage=8192 -Wstrict-aliasing -Wstrict-null-sentinel -Wtype-limits -Wwrite-strings -D_DEBUG -D_EJUDGE_CLIENT_
 
 # Папка с объектами
 BIN_DIR=binary
@@ -18,32 +18,32 @@ all: front middle back
 
 
 # Завершает сборку front.cpp
-front: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_parser grammar input-output tree text dif dsl))
+front: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_parser grammar input-output tree text dif dsl parser))
 	$(COMPILER) $^ -o front.exe
 
 
 # Завершает сборку back.cpp
-back: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back input-output tree text program stack))
+back: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back input-output tree text program stack parser))
 	$(COMPILER) $^ -o back.exe
 
 
 # Завершает сборку middle.cpp
-middle: $(addprefix $(BIN_DIR)/, $(addsuffix .o, middle input-output dif dsl text tree))
+middle: $(addprefix $(BIN_DIR)/, $(addsuffix .o, middle input-output dif dsl text tree parser))
 	$(COMPILER) $^ -o middle.exe
 
 
 # Предварительная сборка front.cpp
-$(BIN_DIR)/front.o: $(addprefix $(SRC_DIR)/, front.cpp symbol_parser.hpp image_parser.hpp grammar.hpp input-output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+$(BIN_DIR)/front.o: $(addprefix $(SRC_DIR)/, front.cpp symbol_parser.hpp image_parser.hpp grammar.hpp input-output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp parser.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
 # Предварительная сборка back.cpp
-$(BIN_DIR)/back.o: $(addprefix $(SRC_DIR)/, back.cpp input-output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+$(BIN_DIR)/back.o: $(addprefix $(SRC_DIR)/, back.cpp input-output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp parser.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
 # Предварительная сборка middle.cpp
-$(BIN_DIR)/middle.o: $(addprefix $(SRC_DIR)/, middle.cpp input-output.hpp dif.hpp dsl.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+$(BIN_DIR)/middle.o: $(addprefix $(SRC_DIR)/, middle.cpp input-output.hpp dif.hpp dsl.hpp) $(addprefix $(LIB_DIR)/, tree.hpp parser.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 

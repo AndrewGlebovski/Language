@@ -17,6 +17,15 @@
 #include "input-output.hpp"
 
 
+#define check(condition, message, exitcode)                                                 \
+do {                                                                                        \
+    if (!(condition)) {                                                                     \
+        printf("%s(%i) in %s\n%s\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, message);     \
+        return exitcode;                                                                    \
+    }                                                                                       \
+} while(0)
+
+
 /**
  * \brief Prints node and it's children
  * \param [in]  node   Node to start from
@@ -43,6 +52,9 @@ Node *read_node(char **buffer);
 
 
 int write_tree(Tree *tree, const char *filepath) {
+    check(tree, "Invalid pointer to tree!", 1);
+    check(filepath, "Invalid pointer to filepath!", 2);
+
     FILE *output = fopen(filepath, "w");
 
     write_node(tree -> root, output, 0);
@@ -110,6 +122,9 @@ void clear_spaces(char *buffer) {
 
 
 int read_tree(Tree *tree, const char *filepath) {
+    check(tree, "Invalid pointer to tree!", 1);
+    check(filepath, "Invalid pointer to filepath!", 2);
+
     int input = open(filepath, O_RDONLY);
 
     char *buffer = nullptr;
