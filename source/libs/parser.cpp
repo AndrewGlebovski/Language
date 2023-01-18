@@ -38,3 +38,36 @@ int parse_args(int argc, char* argv[], Command command_list[], size_t list_size)
 
 	return 0;
 }
+
+
+
+
+void set_input_file(char *argv[], void *data) {
+	if (*(++argv)) {
+		*((char **) data) = *argv;
+	}
+	else {
+		printf("No filename after -i, argument ignored!\n");
+	}
+}
+
+
+void set_output_file(char *argv[], void *data) {
+    if (*(++argv)) {
+        *((char **) data) = *argv;
+    }
+    else {
+        printf("No filename after -o, argument ignored!\n");
+    }
+}
+
+
+void show_help(char *argv[], void *data) {
+    size_t i = 0;
+
+    for(; strcmp(((Command *)(data))[i].short_name, "-h") != 0; i++) {
+        printf("%s %s %s\n", ((Command *)(data))[i].short_name, ((Command *)(data))[i].long_name, ((Command *)(data))[i].desc);
+    }
+
+    printf("%s %s %s\n", ((Command *)(data))[i].short_name, ((Command *)(data))[i].long_name, ((Command *)(data))[i].desc);
+}

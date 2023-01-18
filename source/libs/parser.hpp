@@ -24,3 +24,8 @@ typedef struct {
  * \return Non zero value means error
 */
 int parse_args(int argc, char* argv[], Command command_list[], size_t list_size);
+
+
+void set_input_file(char *argv[], void *data);          ///< -i parser
+void set_output_file(char *argv[], void *data);         ///< -o parser
+void show_help(char *argv[], void *data);               ///< -h parser
