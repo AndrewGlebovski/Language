@@ -162,7 +162,7 @@ void stack_dump(Stack *stack, int error, FILE *stream) {
         fprintf(stream, "%4s[%03i] ", "", i); // stack_data_t index
 
         // print value function (possible macros)
-        fprintf(stream, "%s %llu %i", (stack -> data)[i].name, (stack -> data)[i].hash, (stack -> data)[i].index);
+        fprintf(stream, "%s %zu %i", (stack -> data)[i].name, (stack -> data)[i].hash, (stack -> data)[i].index);
 
         if (is_equal_data((stack -> data)[i], POISON_VALUE)) fprintf(stream, " (POISON VALUE)"); // poison value warning
             

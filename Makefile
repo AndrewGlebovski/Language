@@ -14,7 +14,7 @@ SRC_DIR=source
 LIB_DIR=$(SRC_DIR)/libs
 
 
-all: front middle back
+all: $(BIN_DIR) front middle back
 
 
 # Завершает сборку front.cpp
@@ -85,3 +85,8 @@ $(BIN_DIR)/dsl.o: $(addprefix $(SRC_DIR)/, dsl.cpp dsl.hpp) $(addprefix $(LIB_DI
 # Предварительная сборка библиотек
 $(BIN_DIR)/%.o: $(addprefix $(LIB_DIR)/, %.cpp %.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
+
+
+# Создание папки для объектников, если она еще не существует
+$(BIN_DIR):
+	mkdir $@
