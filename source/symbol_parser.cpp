@@ -61,6 +61,17 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
 
             case SHAPE_DOT: assert(0 && "Single dot!");
 
+            case SHAPE_COM:
+                ptr++;
+
+                while (ptr -> shape != SHAPE_COM && ptr -> shape != TERMINATOR) ptr++;
+
+                if (ptr -> shape == SHAPE_COM) ptr++;
+
+                token--;  // Костыль так как token сдвигается на каждой итерации
+
+                break;
+
             case TERMINATOR: token -> type = TYPE_ESC; break; // Escape token
 
             default: {
@@ -163,6 +174,9 @@ int is_reserved_shape(unsigned int shape) {
         RETURN_ONE(SHAPE_LES)
         RETURN_ONE(SHAPE_GEQ)
         RETURN_ONE(SHAPE_LEQ)
+        RETURN_ONE(SHAPE_ELSE)
+        RETURN_ONE(SHAPE_DIF)
+        RETURN_ONE(SHAPE_COM)
         RETURN_ONE(TERMINATOR)
         default: return 0;
     }

@@ -53,7 +53,7 @@ $(BIN_DIR)/image_parser.o: $(addprefix $(SRC_DIR)/, image_parser.cpp image_parse
 
 
 # Предварительная сборка symbol_parser.cpp
-$(BIN_DIR)/symbol_parser.o: $(addprefix $(SRC_DIR)/, symbol_parser.cpp symbol_parser.hpp image_parser.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
+$(BIN_DIR)/symbol_parser.o: $(addprefix $(SRC_DIR)/, symbol_parser.cpp symbol_parser.hpp image_parser.hpp reserved_shapes.hpp) $(addprefix $(LIB_DIR)/, tree.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
