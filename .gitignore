@@ -53,4 +53,4 @@ dkms.conf
 
 # Debug
 debug/
-*.txt
+run.sh
