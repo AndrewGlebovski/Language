@@ -355,7 +355,7 @@ void add_function(const Node *node, FILE *file, VarList *var_list, int shift) {
 void add_expression(const Node *node, FILE *file, VarList *var_list, int shift) {
     switch(node -> type) {
         case TYPE_NUM: {
-            PRINT("PUSH %.3lg", node -> value.dbl);
+            PRINT("PUSH %.3f", node -> value.dbl);
             break;
         }
         case TYPE_VAR: {

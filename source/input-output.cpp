@@ -73,7 +73,7 @@ void write_node(Node *node, FILE *stream, int shift) {
     
     switch (node -> type) {
         case TYPE_OP:       PRINT("%i, %i",     TYPE_OP, node -> value.op);         break;
-        case TYPE_NUM:      PRINT("%i, %.3lg",  TYPE_NUM, node -> value.dbl);       break;
+        case TYPE_NUM:      PRINT("%i, %.3f",  TYPE_NUM, node -> value.dbl);       break;
         case TYPE_VAR:      PRINT("%i, %s",     TYPE_VAR, node -> value.var);       break;
         case TYPE_CALL:     PRINT("%i, %s",     TYPE_CALL, node -> value.var);      break;
         case TYPE_DEF:      PRINT("%i, %s",     TYPE_DEF, node -> value.var);       break;
