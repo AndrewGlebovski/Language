@@ -302,10 +302,9 @@ void add_variable(const Node *node, FILE *file, VarList *var_list, int shift) {
     stack_push(&var_list -> list, new_var);
 
     ASSERT(node -> right, "New variable has no expression to assign!");
-
     CALL_FUNC(add_expression, node -> right);
-    PRINT("POP [%i%s]", new_var.index, (is_global)? "" : " + RDX");
 
+    PRINT("POP [%i%s]", new_var.index, (is_global)? "" : " + RDX");
     PRINT("# Add variable %s!", new_var.name);
 }
 
@@ -377,8 +376,8 @@ void add_expression(const Node *node, FILE *file, VarList *var_list, int shift) 
         case TYPE_OP: {
             PRINT("# Expression node [%-p]", node);
 
-            CALL_FUNC(add_expression, node -> left);
-            CALL_FUNC(add_expression, node -> right);
+            if (node -> left)   CALL_FUNC(add_expression, node -> left);
+            if (node -> right)  CALL_FUNC(add_expression, node -> right);
 
             shift += 4;
 
@@ -394,6 +393,31 @@ void add_expression(const Node *node, FILE *file, VarList *var_list, int shift) 
                 case OP_LES:    print_cond("JB", file, shift);  break;
                 case OP_GEQ:    print_cond("JAE", file, shift); break;
                 case OP_LEQ:    print_cond("JBE", file, shift); break;
+
+                case OP_REF: {
+                    ASSERT(node -> right, "No expression after referencing operation!");
+
+                    add_expression(node -> right, file, var_list, shift + TAB_SIZE);
+
+                    PRINT("POP RAX");
+                    PRINT("PUSH [RAX]");
+
+                    break;
+                }
+
+                case OP_LOC: {
+                    ASSERT(node -> right, "No identificator after locate operation!");
+                    ASSERT(node -> right -> type == TYPE_VAR, "No identificator after locate operation!");
+
+                    int is_global = 0;
+                    Variable *var = find_variable(string_hash(node -> right -> value.var), var_list, &is_global);
+
+                    ASSERT(var, "Variable %s is not declarated in the current scope!", node -> value.var);
+
+                    PRINT("PUSH %i%s", var -> index, (is_global)? "" : " + RDX");
+
+                    break;
+                }
 
                 default: ASSERT(0, "Unexpected operator %i in expression!", node -> value.op);
             }
@@ -415,12 +439,25 @@ void add_assign(const Node *node, FILE *file, VarList *var_list, int shift) {
 
     ASSERT(node -> left, "No variable to assign!");
     
-    int is_global = 0;
-    Variable *var = find_variable(string_hash(node -> left -> value.var), var_list, &is_global);
+    if (node -> left -> type == TYPE_VAR) {
+        int is_global = 0;
+        Variable *var = find_variable(string_hash(node -> left -> value.var), var_list, &is_global);
 
-    ASSERT(var, "Variable %s is not declarated in the current scope!", node -> left -> value.var);
+        ASSERT(var, "Variable %s is not declarated in the current scope!", node -> left -> value.var);
 
-    PRINTL("POP [%i%s]", var -> index, (is_global)? "" : " + RDX");
+        PRINTL("POP [%i%s]", var -> index, (is_global)? "" : " + RDX");
+    }
+    else if (node -> left -> type == TYPE_OP && node -> left -> value.op == OP_REF) {
+        ASSERT(node -> left -> right, "No expression after referencing operation!");
+
+        add_expression(node -> left -> right, file, var_list, shift + TAB_SIZE);
+
+        PRINTL("POP RAX");
+        PRINTL("POP [RAX]");
+    }
+    else {
+        ASSERT(0, "Can't assign value to this node!");
+    }
 }
 
 

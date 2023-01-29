@@ -421,7 +421,6 @@ Node *get_function(Node **s) {
     Node *value = get_ident(s);
 
     if (IS_TYPE(BRACKET) && (*s) -> value.op == 1) {
-        printf("%s\n", value -> value.var);
         next(s);
 
         value -> type = TYPE_CALL; 

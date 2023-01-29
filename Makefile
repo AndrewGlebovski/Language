@@ -14,21 +14,21 @@ SRC_DIR=source
 LIB_DIR=$(SRC_DIR)/libs
 
 
-all: $(BIN_DIR) front middle back
+all: $(BIN_DIR) front.exe middle.exe back.exe
 
 
 # Завершает сборку front.cpp
-front: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_parser grammar input-output tree text dif dsl parser))
+front.exe: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_parser grammar input-output tree text dif dsl parser))
 	$(COMPILER) $^ -o front.exe
 
 
 # Завершает сборку back.cpp
-back: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back input-output tree text program stack parser))
+back.exe: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back input-output tree text program stack parser))
 	$(COMPILER) $^ -o back.exe
 
 
 # Завершает сборку middle.cpp
-middle: $(addprefix $(BIN_DIR)/, $(addsuffix .o, middle input-output dif dsl text tree parser))
+middle.exe: $(addprefix $(BIN_DIR)/, $(addsuffix .o, middle input-output dif dsl text tree parser))
 	$(COMPILER) $^ -o middle.exe
 
 
