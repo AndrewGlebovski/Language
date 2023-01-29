@@ -174,6 +174,38 @@ Node *get_statement(Node **s) {
 
             break;
         }
+        case TYPE_OP: {
+            switch ((*s) -> value.op) {
+                case OP_REF: {
+                    next(s);
+
+                    Node *factor = get_factor(s);
+
+                    assert(factor && "No expression after dereferencing operation!");
+
+                    Node *ref = create_node(TYPE_OP, {OP_REF}, nullptr, factor);
+
+                    assert(IS_OP(ASS) && "No assign operator after *(expression)!");
+                    next(s);
+
+                    Node *exp = get_derivative(s);
+
+                    assert(exp && "No expression after assign!");
+
+                    value -> left = create_node(TYPE_OP, {OP_ASS}, ref, exp);
+
+                    assert(IS_TYPE(SEQ) && "No ; after statement!");
+                    next(s);
+
+                    break;
+                }
+
+                default:
+                    assert(0 && "Unexpected operator type in statement!");
+            }
+
+            break;
+        }
         case TYPE_BLOCK: {
             if ((*s) -> value.op == 1) {
                 next(s);
@@ -319,6 +351,28 @@ Node *get_unary(Node **s) {
 
         op -> left = create_node(TYPE_NUM, {0}), op -> right = get_factor(s);
 
+        assert(op -> right && "No expression after unary minus!");
+
+        return op;
+    }
+    else if (IS_OP(REF)) {
+        Node *op = copy_node(*s);
+        next(s);
+
+        op -> right = get_factor(s);
+
+        assert(op -> right && "No expression after dereferencing operation!");
+
+        return op;
+    }
+    else if (IS_OP(LOC)) {
+        Node *op = copy_node(*s);
+        next(s);
+
+        op -> right = get_ident(s);
+
+        assert(op -> right && "No ident after locate operation!");
+
         return op;
     }
     else {
@@ -367,6 +421,7 @@ Node *get_function(Node **s) {
     Node *value = get_ident(s);
 
     if (IS_TYPE(BRACKET) && (*s) -> value.op == 1) {
+        printf("%s\n", value -> value.var);
         next(s);
 
         value -> type = TYPE_CALL; 

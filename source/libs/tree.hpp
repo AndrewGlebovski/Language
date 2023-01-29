@@ -20,7 +20,9 @@ typedef enum {
     OP_LES,
     OP_GEQ,
     OP_LEQ,
-    OP_DIF
+    OP_DIF,
+    OP_REF,
+    OP_LOC,
 } OPERATORS;
 
 

@@ -59,6 +59,9 @@ Node *parse_symbols(const Symbol *symbols, int symbols_size, int *tokens_size) {
 
             CASE_TOKEN_OP(DIF);
 
+            CASE_TOKEN_OP(REF);
+            CASE_TOKEN_OP(LOC);
+
             case SHAPE_DOT: assert(0 && "Single dot!");
 
             case SHAPE_COM:

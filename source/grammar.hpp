@@ -9,6 +9,7 @@ definition ::=
 statement ::=
     'var' ident = derivative ';'
     | ident '=' derivative ';'
+    | '*' factor '=' condition ';'
     | ident '(' {derivative}? {',' derivative} ')' ';'
     | 'begin' {statement ';'} 'end'
     | 'if' '(' condition ')' statement {'else' statement}?
@@ -23,7 +24,7 @@ expression ::= term {['+''-'] term}
 
 term ::= unary {['*''/'] unary}
 
-unary ::= '-' factor | factor
+unary ::= '-' factor | '*' factor | '&' ident | factor
 
 factor ::= '(' condition ')' | function | number
 
