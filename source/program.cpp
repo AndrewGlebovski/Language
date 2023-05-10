@@ -5,7 +5,7 @@
 #elif __linux__
     #include <unistd.h>
 #else
-    #error "Your system case is not defined!"
+    #error "Your system case is not defined!\n"
 #endif
 
 #include <fcntl.h>
@@ -42,32 +42,31 @@ do                                      \
     }                                   \
 } while (0)
 
-/// Prints with the current offset
+/// Prints command on new line without tab
 #define PRINT(...)                      \
 do {                                    \
-    fprintf(file, "%*s", shift, "");    \
     fprintf(file, __VA_ARGS__);         \
     fputc('\n', file);                  \
     line++;                             \
 } while(0)
 
-/// Prints with the current offset plus one more TAB_SIZE
+/// Prints command on new line with tab
 #define PRINTL(...)                                 \
 do {                                                \
-    fprintf(file, "%*s", shift + TAB_SIZE, "");     \
+    fprintf(file, "%*s", TAB_SIZE, "");             \
     fprintf(file, __VA_ARGS__);                     \
     fputc('\n', file);                              \
     line++;                                         \
 } while(0)
 
-/// Prints skip one line to file
+/// Prints empty line to the file
 #define SKIP_LINE(...) do {                         \
     fputc('\n', file);                              \
     line++;                                         \
 } while(0)
 
 /// Calls function for assembler source code output with only argument
-#define CALL_FUNC(func_name, node_arg) func_name(node_arg, file, var_list, shift + TAB_SIZE)
+#define CALL_FUNC(func_name, node_arg) func_name(node_arg, file, var_list)
 
 
 
@@ -80,37 +79,37 @@ Stack func_list = {};
 
 
 /// Reads definition sequence type node and prints result to file
-void read_def_sequence(const Node *node, FILE *file, VarList *var_list, int shift);
+void read_def_sequence(const Node *node, FILE *file, VarList *var_list);
 
 /// Reads sequence type node and prints result to file
-void read_sequence(const Node *node, FILE *file, VarList *var_list, int shift);
+void read_sequence(const Node *node, FILE *file, VarList *var_list);
 
 /// Add new variable to variable list of the current scope
-void add_variable(const Node *node, FILE *file, VarList *var_list, int shift);
+void add_variable(const Node *node, FILE *file, VarList *var_list);
 
 /// Add new function to function list of the current scope
-void add_function(const Node *node, FILE *file, VarList *var_list, int shift);
+void add_function(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints expression to file
-void add_expression(const Node *node, FILE *file, VarList *var_list, int shift);
+void add_expression(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints variable assign operation to file
-void add_assign(const Node *node, FILE *file, VarList *var_list, int shift);
+void add_assign(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints if operator to file
-void add_if(const Node *node, FILE *file, VarList *var_list, int shift);
+void add_if(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints while operator to file
-void add_while(const Node *node, FILE *file, VarList *var_list, int shift);
+void add_while(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints function call to file
-void add_function_call(const Node *node, FILE *file, VarList *var_list, int shift);
+void add_function_call(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints return statement to file
-void add_return(const Node *node, FILE *file, VarList *var_list, int shift);
+void add_return(const Node *node, FILE *file, VarList *var_list);
 
 /// Prints function parameters in reverse order
-void add_parameters(const Node *node, FILE *file, int shift, int index_offset);
+void add_parameters(const Node *node, FILE *file, int index_offset);
 
 
 /**
@@ -136,9 +135,8 @@ Function *find_function(size_t hash);
  * \brief Includes file content in assembler code
  * \param [in]  filename    Path to input file
  * \param [out] file        Output file pointer
- * \param [in]  shift       Line offset value
 */
-void include_file(const char *filename, FILE *file, int shift);
+void include_file(const char *filename, FILE *file);
 
 
 /**
@@ -152,8 +150,10 @@ int count_variables(const VarList *varlist);
 /// Calculates hash sum of the string
 size_t string_hash(const char *str);
 
+
 /// Prints condition result to file
-void print_cond(const char *cond_op, FILE *file, int shift);
+void print_cond(const char *cond_op, FILE *file);
+
 
 /**
  * \brief Initializes varlist stack and set previous one
@@ -161,6 +161,7 @@ void print_cond(const char *cond_op, FILE *file, int shift);
  * \return New VarList
 */
 VarList init_varlist(VarList *prev = nullptr);
+
 
 /**
  * \brief Destructs varlist stack
@@ -179,8 +180,6 @@ int print_program(const Tree *tree, const char *filename) {
 
     line = 1;
 
-    int shift = -4;              // Это по факту костыль, чтоб макросы работали без исключений
-
     VarList global_list = init_varlist();
 
     stack_constructor(&func_list, 2);
@@ -197,28 +196,31 @@ int print_program(const Tree *tree, const char *filename) {
 
     for (int i = 0; i < (int)(sizeof(lib) / sizeof(Function)); i++) stack_push(&func_list, lib[i]);
 
-    PRINTL("JMP START:");
+    PRINT("JMP START:");
     SKIP_LINE();
 
-    include_file("stdlib.asm", file, 0);
+    include_file("stdlib.asm", file);
 
-    read_def_sequence(tree -> root, file, &global_list, shift + TAB_SIZE);
+    PRINT("# Source code");
+
+    read_def_sequence(tree -> root, file, &global_list);
 
     if (!find_function(string_hash(MAIN_FUNC))) {
-        printf("Main function was not declarated in the current scope!");
+        printf("Main function was not declarated in the current scope!\n");
         abort();
     }
 
-    PRINTL("START:");
-    PRINTL("PUSH %i", global_list.list.size);
-    PRINTL("POP RDX");
-    PRINTL("CALL FUNC_%s:", MAIN_FUNC);
+    SKIP_LINE();
+    PRINT("START:");
+    PRINT("PUSH %i", global_list.list.size);
+    PRINT("POP RDX");
+    PRINT("CALL FUNC_%s:", MAIN_FUNC);
 
     free_varlist(&global_list);
 
     stack_destructor(&func_list);
 
-    PRINTL("HLT");
+    PRINT("HLT");
 
     fclose(file);
 
@@ -226,53 +228,44 @@ int print_program(const Tree *tree, const char *filename) {
 }
 
 
-void include_file(const char *filename, FILE *file, int shift) {
+void include_file(const char *filename, FILE *file) {
     int origin = open(filename, O_RDONLY);
 
     Text text = {};
     read_text(&text, origin);
 
     PRINT("# Included from %s", filename);
-    SKIP_LINE();
-
+    
     for (String *i = text.lines; i -> str; i++) PRINT("%s", i -> str);
-
-    SKIP_LINE();
 
     close(origin);
 }
 
 
-void read_def_sequence(const Node *node, FILE *file, VarList *var_list, int shift) {
+void read_def_sequence(const Node *node, FILE *file, VarList *var_list) {
     for (const Node *iter = node; iter; iter = iter -> right){
-        ASSERT(iter, "Definition sequence is null!");
+        ASSERT(iter, "Definition sequence is null!\n");
 
-        ASSERT(iter -> type == TYPE_DEF_SEQ, "Definition sequence expect type %i, but %i got!", TYPE_DEF_SEQ, iter -> type);
+        ASSERT(iter -> type == TYPE_DEF_SEQ, "Definition sequence expect type %i, but %i got!\n", TYPE_DEF_SEQ, iter -> type);
 
-        ASSERT(iter -> left, "Definition sequence has no left child!");
-
-        PRINT("# Definition sequence node [%-p]", iter);
+        ASSERT(iter -> left, "Definition sequence has no left child!\n");
 
         switch (iter -> left -> type) {
             case TYPE_NVAR:     CALL_FUNC(add_variable, iter -> left);       break;
             case TYPE_DEF:      CALL_FUNC(add_function, iter -> left);      break;
-            default: ASSERT(0, "Definition sequence left child has type %i!", iter -> left -> type);
+            default: ASSERT(0, "Definition sequence left child has type %i!\n", iter -> left -> type);
         }
-
-        SKIP_LINE();
     }
 }
 
 
-void read_sequence(const Node *node, FILE *file, VarList *var_list, int shift) {
+void read_sequence(const Node *node, FILE *file, VarList *var_list) {
     for (const Node *iter = node; iter; iter = iter -> right){
-        ASSERT(iter, "Sequence is null!");
+        ASSERT(iter, "Sequence is null!\n");
 
-        ASSERT(iter -> type == TYPE_SEQ, "Sequence expect type %i, but %i got!", TYPE_SEQ, iter -> type);
+        ASSERT(iter -> type == TYPE_SEQ, "Sequence expect type %i, but %i got!\n", TYPE_SEQ, iter -> type);
 
-        ASSERT(iter -> left, "Sequence has no left child!");
-
-        PRINT("# Sequence node [%-p]", iter);
+        ASSERT(iter -> left, "Sequence has no left child!\n");
 
         switch (iter -> left -> type) {
             case TYPE_NVAR:     CALL_FUNC(add_variable, iter -> left);                               break;
@@ -281,296 +274,263 @@ void read_sequence(const Node *node, FILE *file, VarList *var_list, int shift) {
             case TYPE_WHILE:    CALL_FUNC(add_while, iter -> left);                               break;
             case TYPE_RET:      CALL_FUNC(add_return, iter -> left);                              break;
             case TYPE_CALL:     CALL_FUNC(add_function_call, iter -> left); PRINTL("POP RBX");    break;
-            default: ASSERT(0, "Sequence left child has type %i!", iter -> left -> type);
+            default: ASSERT(0, "Sequence left child has type %i!\n", iter -> left -> type);
         }
 
-        SKIP_LINE();
+        
     }
 }
 
 
-void add_variable(const Node *node, FILE *file, VarList *var_list, int shift) {
-    ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!");
+void add_variable(const Node *node, FILE *file, VarList *var_list) {
+    ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!\n");
 
     size_t hash = string_hash(node -> value.var);
 
     int is_global = 0;
-    ASSERT(!find_variable(hash, var_list, &is_global, 1), "Variable %s has already been declarated!", node -> value.var);
+    ASSERT(!find_variable(hash, var_list, &is_global, 1), "Variable %s has already been declarated!\n", node -> value.var);
 
     Variable new_var = {node -> value.var, hash, count_variables(var_list)};
 
     stack_push(&var_list -> list, new_var);
 
-    ASSERT(node -> right, "New variable has no expression to assign!");
+    ASSERT(node -> right, "New variable has no expression to assign!\n");
     CALL_FUNC(add_expression, node -> right);
 
-    PRINT("POP [%i%s]", new_var.index, (is_global)? "" : " + RDX");
-    PRINT("# Add variable %s!", new_var.name);
+    PRINTL("POP [%i%s]", new_var.index, (is_global)? "" : " + RDX");
 }
 
 
-void add_parameters(const Node *node, FILE *file, int shift, int index_offset) {
+void add_parameters(const Node *node, FILE *file, int index_offset) {
     if (!node) return;
 
-    ASSERT(node -> type == TYPE_PAR, "Node is not parameter type!");
+    ASSERT(node -> type == TYPE_PAR, "Node is not parameter type!\n");
 
-    if (node -> right) add_parameters(node -> right, file, shift, index_offset + 1);
+    if (node -> right) add_parameters(node -> right, file, index_offset + 1);
 
-    PRINT("# Function parameter %s", node -> value.var);
     PRINTL("POP [%i + RDX]", index_offset);
-    SKIP_LINE();
 }
 
 
-void add_function(const Node *node, FILE *file, VarList *var_list, int shift) {
-    ASSERT(node -> type == TYPE_DEF, "Node is not function define type!");
+void add_function(const Node *node, FILE *file, VarList *var_list) {
+    ASSERT(node -> type == TYPE_DEF, "Node is not function define type!\n");
     
-    ASSERT(!find_function(string_hash(node -> value.var)), "Function %s has already been declarated!", node -> value.var);
+    ASSERT(!find_function(string_hash(node -> value.var)), "Function %s has already been declarated!\n", node -> value.var);
 
     Function new_func = {node -> value.var, string_hash(node -> value.var), 0};
 
-    PRINT("# Function declaration [%-p]", node);
-    SKIP_LINE();
-
     VarList new_varlist = init_varlist(var_list);
 
-    PRINTL("FUNC_%s:", node -> value.var);
-    SKIP_LINE();
+    PRINT("FUNC_%s:", node -> value.var);
 
     for (const Node *par = node -> left; par; par = par -> right, new_func.index++) 
         stack_push(&new_varlist.list, {par -> value.var, string_hash(par -> value.var), new_func.index});
 
-    add_parameters(node -> left, file, shift + TAB_SIZE, 0);
+    add_parameters(node -> left, file, 0);
 
     stack_push(&func_list, new_func);
 
-    ASSERT(node -> right, "Function has no sequence!");
-    read_sequence(node -> right, file, &new_varlist, shift + TAB_SIZE);
+    ASSERT(node -> right, "Function has no sequence!\n");
+    read_sequence(node -> right, file, &new_varlist);
 
     free_varlist(&new_varlist);
+
+    SKIP_LINE();
 }
 
 
-void add_expression(const Node *node, FILE *file, VarList *var_list, int shift) {
+void add_expression(const Node *node, FILE *file, VarList *var_list) {
     switch(node -> type) {
         case TYPE_NUM: {
-            PRINT("PUSH %.3f", node -> value.dbl);
+            PRINTL("PUSH %.3f", node -> value.dbl);
             break;
         }
         case TYPE_VAR: {
             int is_global = 0;
             Variable *var = find_variable(string_hash(node -> value.var), var_list, &is_global);
 
-            ASSERT(var, "Variable %s is not declarated in the current scope!", node -> value.var);
+            ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> value.var);
 
-            PRINT("PUSH [%i%s]", var -> index, (is_global)? "" : " + RDX");
+            PRINTL("PUSH [%i%s]", var -> index, (is_global)? "" : " + RDX");
             break;
         }
         case TYPE_CALL: {
-            shift -= 4;
-
             CALL_FUNC(add_function_call, node);
 
             break;
         }
         case TYPE_OP: {
-            PRINT("# Expression node [%-p]", node);
-
             if (node -> left)   CALL_FUNC(add_expression, node -> left);
             if (node -> right)  CALL_FUNC(add_expression, node -> right);
 
-            shift += 4;
-
             switch (node -> value.op) {
-                case OP_ADD: PRINT("ADD"); break;
-                case OP_SUB: PRINT("SUB"); break;
-                case OP_MUL: PRINT("MUL"); break;
-                case OP_DIV: PRINT("DIV"); break;
+                case OP_ADD: PRINTL("ADD"); break;
+                case OP_SUB: PRINTL("SUB"); break;
+                case OP_MUL: PRINTL("MUL"); break;
+                case OP_DIV: PRINTL("DIV"); break;
 
-                case OP_EQ:     print_cond("JE", file, shift);  break;
-                case OP_NEQ:    print_cond("JNE", file, shift); break;
-                case OP_GRE:    print_cond("JA", file, shift);  break;
-                case OP_LES:    print_cond("JB", file, shift);  break;
-                case OP_GEQ:    print_cond("JAE", file, shift); break;
-                case OP_LEQ:    print_cond("JBE", file, shift); break;
+                case OP_EQ:     print_cond("JE", file);  break;
+                case OP_NEQ:    print_cond("JNE", file); break;
+                case OP_GRE:    print_cond("JA", file);  break;
+                case OP_LES:    print_cond("JB", file);  break;
+                case OP_GEQ:    print_cond("JAE", file); break;
+                case OP_LEQ:    print_cond("JBE", file); break;
 
                 case OP_REF: {
-                    ASSERT(node -> right, "No expression after referencing operation!");
+                    ASSERT(node -> right, "No expression after referencing operation!\n");
 
-                    add_expression(node -> right, file, var_list, shift + TAB_SIZE);
+                    add_expression(node -> right, file, var_list);
 
-                    PRINT("POP RAX");
-                    PRINT("PUSH [RAX]");
+                    PRINTL("POP RAX");
+                    PRINTL("PUSH [RAX]");
 
                     break;
                 }
 
                 case OP_LOC: {
-                    ASSERT(node -> right, "No identificator after locate operation!");
-                    ASSERT(node -> right -> type == TYPE_VAR, "No identificator after locate operation!");
+                    ASSERT(node -> right, "No identificator after locate operation!\n");
+                    ASSERT(node -> right -> type == TYPE_VAR, "No identificator after locate operation!\n");
 
                     int is_global = 0;
                     Variable *var = find_variable(string_hash(node -> right -> value.var), var_list, &is_global);
 
-                    ASSERT(var, "Variable %s is not declarated in the current scope!", node -> value.var);
+                    ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> value.var);
 
-                    PRINT("PUSH %i%s", var -> index, (is_global)? "" : " + RDX");
+                    PRINTL("PUSH %i%s", var -> index, (is_global)? "" : " + RDX");
 
                     break;
                 }
 
-                default: ASSERT(0, "Unexpected operator %i in expression!", node -> value.op);
+                default: ASSERT(0, "Unexpected operator %i in expression!\n", node -> value.op);
             }
 
             break;
         }
-        default: ASSERT(0, "Node has type %i and it's not expression type!", node -> type);
+        default: ASSERT(0, "Node has type %i and it's not expression type!\n", node -> type);
     }
 }
 
 
-void add_assign(const Node *node, FILE *file, VarList *var_list, int shift) {
-    PRINT("# Assign node [%-p]", node);
+void add_assign(const Node *node, FILE *file, VarList *var_list) {
+    ASSERT(node -> type == TYPE_OP && node -> value.op == OP_ASS, "Assign expect op %i, but %i got!\n", OP_ASS, node -> value.op);
 
-    ASSERT(node -> type == TYPE_OP && node -> value.op == OP_ASS, "Assign expect op %i, but %i got!", OP_ASS, node -> value.op);
-
-    ASSERT(node -> right, "No expression to assign!");
+    ASSERT(node -> right, "No expression to assign!\n");
     CALL_FUNC(add_expression, node -> right);
 
-    ASSERT(node -> left, "No variable to assign!");
+    ASSERT(node -> left, "No variable to assign!\n");
     
     if (node -> left -> type == TYPE_VAR) {
         int is_global = 0;
         Variable *var = find_variable(string_hash(node -> left -> value.var), var_list, &is_global);
 
-        ASSERT(var, "Variable %s is not declarated in the current scope!", node -> left -> value.var);
+        ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> left -> value.var);
 
         PRINTL("POP [%i%s]", var -> index, (is_global)? "" : " + RDX");
     }
     else if (node -> left -> type == TYPE_OP && node -> left -> value.op == OP_REF) {
-        ASSERT(node -> left -> right, "No expression after referencing operation!");
+        ASSERT(node -> left -> right, "No expression after referencing operation!\n");
 
-        add_expression(node -> left -> right, file, var_list, shift + TAB_SIZE);
+        add_expression(node -> left -> right, file, var_list);
 
         PRINTL("POP RAX");
         PRINTL("POP [RAX]");
     }
     else {
-        ASSERT(0, "Can't assign value to this node!");
+        ASSERT(0, "Can't assign value to this node!\n");
     }
 }
 
 
-void add_if(const Node *node, FILE *file, VarList *var_list, int shift) {
-    ASSERT(node -> type == TYPE_IF, "If expect type %i, but %i got!", TYPE_IF, node -> type);
+void add_if(const Node *node, FILE *file, VarList *var_list) {
+    ASSERT(node -> type == TYPE_IF, "If expect type %i, but %i got!\n", TYPE_IF, node -> type);
 
-    PRINT("# If node [%-p]", node);
-
-    ASSERT(node -> left, "If has no condition!");
+    ASSERT(node -> left, "If has no condition!\n");
     CALL_FUNC(add_expression, node -> left);
 
     PRINTL("PUSH 0");
     int cur_line = line;
     PRINTL("JE IF_%i_FALSE", cur_line);
 
-    SKIP_LINE();
-
-    ASSERT(node -> right -> left, "If has no sequence after it!");
+    ASSERT(node -> right -> left, "If has no sequence after it!\n");
 
     VarList new_varlist = init_varlist(var_list);
-    read_sequence(node -> right -> left, file, &new_varlist, shift + TAB_SIZE);
+    read_sequence(node -> right -> left, file, &new_varlist);
     free_varlist(&new_varlist);
 
     PRINTL("JMP IF_%i_END", cur_line);
-    PRINTL("IF_%i_FALSE:", cur_line);
+    PRINT("IF_%i_FALSE:", cur_line);
 
     if (node -> right -> right) {
         new_varlist = init_varlist(var_list);
-        read_sequence(node -> right -> right, file, &new_varlist, shift + TAB_SIZE);
+        read_sequence(node -> right -> right, file, &new_varlist);
         free_varlist(&new_varlist);
     }
 
-    PRINTL("IF_%i_END:", cur_line);
+    PRINT("IF_%i_END:", cur_line);
 }
 
 
-void add_while(const Node *node, FILE *file, VarList *var_list, int shift) {
-    ASSERT(node -> type == TYPE_WHILE, "While expect type %i, but %i got!", TYPE_WHILE, node -> type);
-
-    PRINT("# While node [%-p]", node);
+void add_while(const Node *node, FILE *file, VarList *var_list) {
+    ASSERT(node -> type == TYPE_WHILE, "While expect type %i, but %i got!\n", TYPE_WHILE, node -> type);
 
     int cur_line = line;
 
-    PRINTL("CYCLE_%i_ITER:", cur_line);
+    PRINT("CYCLE_%i_ITER:", cur_line);
 
-    ASSERT(node -> left, "While has no condition!");
+    ASSERT(node -> left, "While has no condition!\n");
     CALL_FUNC(add_expression, node -> left);
 
     PRINTL("PUSH 0");
     PRINTL("JE CYCLE_%i_FALSE", cur_line);
 
-    SKIP_LINE();
-
-    ASSERT(node -> right, "While has no sequence after it!");
+    ASSERT(node -> right, "While has no sequence after it!\n");
 
     VarList new_varlist = init_varlist(var_list);
-    read_sequence(node -> right, file, &new_varlist, shift + TAB_SIZE);
+    read_sequence(node -> right, file, &new_varlist);
     free_varlist(&new_varlist);
 
     PRINTL("JMP CYCLE_%i_ITER", cur_line);
 
-    PRINTL("CYCLE_%i_FALSE:", cur_line);
+    PRINT("CYCLE_%i_FALSE:", cur_line);
 }
 
 
-void add_function_call(const Node *node, FILE *file, VarList *var_list, int shift) {
-    ASSERT(node -> type == TYPE_CALL, "Function call expect type %i, but %i got!", TYPE_CALL, node -> type);
-
-    PRINT("# Call function node [%-p]", node);
+void add_function_call(const Node *node, FILE *file, VarList *var_list) {
+    ASSERT(node -> type == TYPE_CALL, "Function call expect type %i, but %i got!\n", TYPE_CALL, node -> type);
 
     Function *func = find_function(string_hash(node -> value.var));
 
-    ASSERT(func, "Function %s was not declarated in the current scope!", node -> value.var);
-
-    shift += 4;
+    ASSERT(func, "Function %s was not declarated in the current scope!\n", node -> value.var);
 
     int arg_count = 0;
 
     for (const Node *arg = node -> left; arg; arg = arg -> right, arg_count++) {
-        ASSERT(arg -> type == TYPE_ARG, "Node is not argument type!");
-
-        PRINT("# Argument node [%-p]", node);
+        ASSERT(arg -> type == TYPE_ARG, "Node is not argument type!\n");
 
         CALL_FUNC(add_expression, arg -> left);
-
-        SKIP_LINE();
     }
 
-    ASSERT(arg_count == func -> index, "Function %s expects %i arguments, but got %i!", func -> name, func -> index, arg_count);
+    ASSERT(arg_count == func -> index, "Function %s expects %i arguments, but got %i!\n", func -> name, func -> index, arg_count);
 
-    PRINT("PUSH RDX");
-    PRINT("PUSH %i", count_variables(var_list)); 
-    PRINT("ADD");
-    PRINT("POP RDX");
-    SKIP_LINE();
+    PRINTL("PUSH RDX");
+    PRINTL("PUSH %i", count_variables(var_list)); 
+    PRINTL("ADD");
+    PRINTL("POP RDX");
 
-    PRINT("CALL FUNC_%s", node -> value.var);
+    PRINTL("CALL FUNC_%s", node -> value.var);
 
-    SKIP_LINE();
-    PRINT("PUSH RDX");
-    PRINT("PUSH %i", count_variables(var_list)); 
-    PRINT("SUB");
-    PRINT("POP RDX");
-    SKIP_LINE();
+    PRINTL("PUSH RDX");
+    PRINTL("PUSH %i", count_variables(var_list)); 
+    PRINTL("SUB");
+    PRINTL("POP RDX");
+    
 }
 
 
-void add_return(const Node *node, FILE *file, VarList *var_list, int shift) {
-    ASSERT(node -> type == TYPE_RET, "Return expect type %i, but %i got!", TYPE_RET, node -> type);
+void add_return(const Node *node, FILE *file, VarList *var_list) {
+    ASSERT(node -> type == TYPE_RET, "Return expect type %i, but %i got!\n", TYPE_RET, node -> type);
 
-    PRINT("# Return node [%-p]", node);
-
-    ASSERT(node -> left, "Return has no expression!");
+    ASSERT(node -> left, "Return has no expression!\n");
     CALL_FUNC(add_expression, node -> left);
 
     PRINTL("RET");
@@ -615,17 +575,14 @@ size_t gnu_hash(const void *ptr, size_t size) {
 }
 
 
-void print_cond(const char *cond_op, FILE *file, int shift) {
-    PRINT("# Condition");
-    PRINT("PUSH 1");
-    PRINT("POP RAX");
-    PRINT("%s COND_%i", cond_op, line);
-    PRINT("PUSH 0");
-    PRINT("POP RAX");
+void print_cond(const char *cond_op, FILE *file) {
+    PRINTL("PUSH 1");
+    PRINTL("POP RAX");
+    PRINTL("%s COND_%i", cond_op, line);
+    PRINTL("PUSH 0");
+    PRINTL("POP RAX");
     PRINT("COND_%i:", line - 3);
-    PRINT("PUSH RAX");
-
-    SKIP_LINE();
+    PRINTL("PUSH RAX");
 }
 
 
