@@ -9,6 +9,7 @@
 #endif
 
 #include <fcntl.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
@@ -24,7 +25,7 @@ const int TAB_SIZE = 4;
 
 typedef stack_data_t Variable;
 typedef stack_data_t Function;
-
+typedef unsigned long long hash_t;
 
 struct VarList {
     Stack list = {};
@@ -113,22 +114,22 @@ void add_return(const Node *node, FILE *file, VarList *var_list);
 
 
 /**
- * \brief Finds variable in list by its name hash
- * \param [in] hash Var name hash
- * \param [in] var_list List of variables
- * \param [in] is_global Returns non zero value if variable was declarated global
- * \param [in] max_depth Max depth of recursive search in var list previous
+ * \brief Finds variable in list by its name
+ * \param [in] var_name     Var name
+ * \param [in] var_list     List of variables
+ * \param [in] is_global    Returns non zero value if variable was declarated global
+ * \param [in] max_depth    Max depth of recursive search in var list previous
  * \return Pointer to variable or null
 */
-Variable *find_variable(size_t hash, const VarList *var_list, int *is_global = nullptr, int max_depth = INT_MAX);
+Variable *find_variable(const char *var_name, const VarList *var_list, int *is_global = nullptr, int max_depth = INT_MAX);
 
 
 /**
- * \brief Finds function by its name hash
- * \param [in] hash Function name hash
+ * \brief Finds function by its name
+ * \param [in] func_name    Function name
  * \return Pointer to function
 */
-Function *find_function(size_t hash);
+Function *find_function(const char *func_name);
 
 
 /**
@@ -141,14 +142,10 @@ void include_file(const char *filename, FILE *file);
 
 /**
  * \brief Counts local variables and parameters in function
- * \param [in] varlist To start count from
+ * \param [in] varlist      To start count from
  * \return Variables count
 */
 int get_frame_size(const VarList *varlist);
-
-
-/// Calculates hash sum of the string
-size_t string_hash(const char *str);
 
 
 /// Prints condition result to file
@@ -170,6 +167,14 @@ VarList init_varlist(VarList *prev = nullptr);
 void free_varlist(VarList *varlist);
 
 
+/**
+ * \brief GNU Hash function for string
+ * \param [in] str Char string
+ * \return Hash sum
+*/
+hash_t gnu_hash(const char *str);
+
+
 
 
 int print_program(const Tree *tree, const char *filename) {
@@ -187,9 +192,9 @@ int print_program(const Tree *tree, const char *filename) {
     const char *MAIN_FUNC = "VAR_22B14C_01B8923B";
 
     Function lib[] = {
-        {"VAR_22B14C_00076DC0", string_hash("VAR_22B14C_00076DC0"), 0},
-        {"VAR_22B14C_01435CD4", string_hash("VAR_22B14C_01435CD4"), 1},
-        {"VAR_22B14C_0062909C", string_hash("VAR_22B14C_0062909C"), 1},
+        {"VAR_22B14C_00076DC0", gnu_hash("VAR_22B14C_00076DC0"), 0},
+        {"VAR_22B14C_01435CD4", gnu_hash("VAR_22B14C_01435CD4"), 1},
+        {"VAR_22B14C_0062909C", gnu_hash("VAR_22B14C_0062909C"), 1},
     };
 
     for (int i = 0; i < (int)(sizeof(lib) / sizeof(Function)); i++) stack_push(&func_list, lib[i]);
@@ -217,10 +222,10 @@ int print_program(const Tree *tree, const char *filename) {
         SKIP_LINE();
 
         for (int i = 0; i < global_list.list.size; i++)
-            PRINT("%s dq 0", global_list.list.data[i].name);
+            PRINT("%s dq %d", global_list.list.data[i].name, (int)(global_list.list.data[i].init_value * 1000));
     }
 
-    if (!find_function(string_hash(MAIN_FUNC))) {
+    if (!find_function(MAIN_FUNC)) {
         printf("Main function was not declarated in the current scope!\n");
         abort();
     }
@@ -292,12 +297,9 @@ void read_sequence(const Node *node, FILE *file, VarList *var_list) {
 void add_local_variable(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!\n");
 
-    size_t hash = string_hash(node -> value.var);
+    ASSERT(!find_variable(node -> value.var, var_list, nullptr, 1), "Variable %s has already been declarated!\n", node -> value.var);
 
-    int is_global = 0;
-    ASSERT(!find_variable(hash, var_list, &is_global, 1), "Variable %s has already been declarated!\n", node -> value.var);
-
-    Variable new_var = {node -> value.var, hash, -1-get_frame_size(var_list)};
+    Variable new_var = {node -> value.var, gnu_hash(node -> value.var), -1-get_frame_size(var_list), 0};
     stack_push(&var_list -> list, new_var);
 
     ASSERT(node -> right, "New variable has no expression to assign!\n");
@@ -308,24 +310,25 @@ void add_local_variable(const Node *node, FILE *file, VarList *var_list) {
 void add_global_variable(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!\n");
 
-    size_t hash = string_hash(node -> value.var);
+    ASSERT(!find_variable(node -> value.var, var_list, nullptr, 1), "Variable %s has already been declarated!\n", node -> value.var);
 
-    int is_global = 0;
-    ASSERT(!find_variable(hash, var_list, &is_global, 1), "Variable %s has already been declarated!\n", node -> value.var);
+    Variable new_var = {node -> value.var, gnu_hash(node -> value.var), 0, 0};
 
-    Variable new_var = {node -> value.var, hash, 0};
+    if (node -> right) {
+        ASSERT(node -> right -> type == TYPE_NUM, "Global variables can only have constant initial value!\n");
+        new_var.init_value = node -> right -> value.dbl;
+    }
+
     stack_push(&var_list -> list, new_var);
-
-    if (node -> right) printf("Global variables always init with zero, expression discarded!\n");
 }
 
 
 void add_function(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node -> type == TYPE_DEF, "Node is not function define type!\n");
     
-    ASSERT(!find_function(string_hash(node -> value.var)), "Function %s has already been declarated!\n", node -> value.var);
+    ASSERT(!find_function(node -> value.var), "Function %s has already been declarated!\n", node -> value.var);
 
-    Function new_func = {node -> value.var, string_hash(node -> value.var), 0};
+    Function new_func = {node -> value.var, gnu_hash(node -> value.var), 0};
 
     VarList args_varlist = init_varlist(var_list);
     VarList local_varlist = init_varlist(&args_varlist);
@@ -335,7 +338,7 @@ void add_function(const Node *node, FILE *file, VarList *var_list) {
     PRINTL("mov rbp, rsp");
 
     for (const Node *par = node -> left; par; par = par -> right, new_func.index++) 
-        stack_push(&args_varlist.list, {par -> value.var, string_hash(par -> value.var), 2 + new_func.index});
+        stack_push(&args_varlist.list, {par -> value.var, gnu_hash(par -> value.var), 2 + new_func.index});
 
     stack_push(&func_list, new_func);
 
@@ -357,7 +360,7 @@ void add_expression(const Node *node, FILE *file, VarList *var_list) {
         }
         case TYPE_VAR: {
             int is_global = 0;
-            Variable *var = find_variable(string_hash(node -> value.var), var_list, &is_global);
+            Variable *var = find_variable(node -> value.var, var_list, &is_global);
 
             ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> value.var);
 
@@ -452,7 +455,7 @@ void add_expression(const Node *node, FILE *file, VarList *var_list) {
                     ASSERT(node -> right -> type == TYPE_VAR, "No identificator after locate operation!\n");
 
                     int is_global = 0;
-                    Variable *var = find_variable(string_hash(node -> right -> value.var), var_list, &is_global);
+                    Variable *var = find_variable(node -> right -> value.var, var_list, &is_global);
 
                     ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> value.var);
 
@@ -488,7 +491,7 @@ void add_assign(const Node *node, FILE *file, VarList *var_list) {
     
     if (node -> left -> type == TYPE_VAR) {
         int is_global = 0;
-        Variable *var = find_variable(string_hash(node -> left -> value.var), var_list, &is_global);
+        Variable *var = find_variable(node -> left -> value.var, var_list, &is_global);
 
         ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> left -> value.var);
 
@@ -567,7 +570,7 @@ void add_while(const Node *node, FILE *file, VarList *var_list) {
 void add_function_call(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node -> type == TYPE_CALL, "Function call expect type %i, but %i got!\n", TYPE_CALL, node -> type);
 
-    Function *func = find_function(string_hash(node -> value.var));
+    Function *func = find_function(node -> value.var);
 
     ASSERT(func, "Function %s was not declarated in the current scope!\n", node -> value.var);
 
@@ -602,39 +605,43 @@ void add_return(const Node *node, FILE *file, VarList *var_list) {
 }
 
 
-Variable *find_variable(size_t hash, const VarList *var_list, int *is_global, int max_depth) {
-    for(int d = 1; d <= max_depth && var_list; d++, var_list = var_list -> prev)
-        for(int i = 0; i < var_list -> list.size; i++)
-            if ((var_list -> list.data)[i].hash == hash) {
+Variable *find_variable(const char *var_name, const VarList *var_list, int *is_global, int max_depth) {
+    assert(var_name && "Null pointer!\n");
+
+    hash_t hash = gnu_hash(var_name);
+
+    for(int d = 1; d <= max_depth && var_list; d++, var_list = var_list -> prev) {
+        for(int i = 0; i < var_list -> list.size; i++) {
+            if ((var_list -> list.data)[i].hash == hash && !strcmp((var_list -> list.data)[i].name, var_name)) {
                 if (is_global) *is_global = (var_list -> prev == nullptr);
 
                 return var_list -> list.data + i;
             }
+        }
+    }
 
     return nullptr;
 }
 
 
-Function *find_function(size_t hash) {
+Function *find_function(const char *func_name) {
+    assert(func_name && "Null pointer!\n");
+
+    hash_t hash = gnu_hash(func_name);
+
     for (int i = 0; i < func_list.size; i++)
-        if (func_list.data[i].hash == hash) return func_list.data + i;
+        if (func_list.data[i].hash == hash && !strcmp(func_list.data[i].name, func_name)) 
+            return func_list.data + i;
     
     return nullptr;
 }
 
 
-size_t string_hash(const char *str) {
-    return gnu_hash(str, strlen(str) * sizeof(char));
-}
-
-
-size_t gnu_hash(const void *ptr, size_t size) {
-    if (!ptr || !size) return 0;
+hash_t gnu_hash(const char *str) {
+    assert(str && "Null pointer!\n");
     
-    size_t hash = 5381;
-
-    for(size_t i = 0; i < size; i++)
-        hash = hash * 33 + ((const char *)(ptr))[i];
+    hash_t hash = 5381;
+    while (*str) hash = hash * 33 + (hash_t) *str++;
     
     return hash;
 }

@@ -1,16 +1,17 @@
 /// Stack data type
 typedef struct {
-    const char *name = nullptr;
-    size_t hash = 0;
-    int index = 0;
+    const char *name        = nullptr;  ///< Variable name
+    unsigned long long hash = 0;        ///< Variable name hash sum
+    int index               = 0;        ///< Variable offset from RBP
+    double init_value       = 0;        ///< Variable initial value
 } stack_data_t;
 
 
 /// Stack
 typedef struct {
-    stack_data_t *data = nullptr;       ///< Array of stack_data_t elements
-    int capacity       =       0;       ///< Maximum size
-    int size           =       0;       ///< Actual number of elements
+    stack_data_t *data  = nullptr;      ///< Array of stack_data_t elements
+    int capacity        = 0;            ///< Maximum size
+    int size            = 0;            ///< Actual number of elements
 } Stack;
 
 
@@ -20,14 +21,14 @@ typedef struct {
 
 /// Exit codes for stack functions
 enum EXIT_CODES {
-    INVALID_DATA     =  1,        ///< Invalid stack data points
-    INVALID_SIZE     =  2,        ///< Size is larger than capacity or negative
-    INVALID_CAPACITY =  3,        ///< Capacity is larger than type's maximum or negative
-    UNEXP_POISON_VAL =  4,        ///< Unexpected poison value before size
-    UNEXP_NORMAL_VAL =  5,        ///< Unexpected normal value after size
-    INVALID_ARGUMENT =  6,        ///< Invalid argument given to the function
-    EMPTY_STACK      =  7,        ///< No elements to pop
-    ALLOCATE_FAIL    =  8,        ///< Memory allocate return NULL
+    INVALID_DATA     =  1,              ///< Invalid stack data points
+    INVALID_SIZE     =  2,              ///< Size is larger than capacity or negative
+    INVALID_CAPACITY =  3,              ///< Capacity is larger than type's maximum or negative
+    UNEXP_POISON_VAL =  4,              ///< Unexpected poison value before size
+    UNEXP_NORMAL_VAL =  5,              ///< Unexpected normal value after size
+    INVALID_ARGUMENT =  6,              ///< Invalid argument given to the function
+    EMPTY_STACK      =  7,              ///< No elements to pop
+    ALLOCATE_FAIL    =  8,              ///< Memory allocate return NULL
 };
 
 
