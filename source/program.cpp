@@ -296,28 +296,25 @@ void read_sequence(const Node *node, FILE *file, VarList *var_list) {
 
 void add_local_variable(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!\n");
+    ASSERT(node -> right, "New variable has no expression to assign!\n");
 
     ASSERT(!find_variable(node -> value.var, var_list, nullptr, 1), "Variable %s has already been declarated!\n", node -> value.var);
 
     Variable new_var = {node -> value.var, gnu_hash(node -> value.var), -1-get_frame_size(var_list), 0};
     stack_push(&var_list -> list, new_var);
 
-    ASSERT(node -> right, "New variable has no expression to assign!\n");
     CALL_FUNC(add_expression, node -> right);
 }
 
 
 void add_global_variable(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!\n");
+    ASSERT(node -> right, "New variable has no expression to assign!\n");
+    ASSERT(node -> right -> type == TYPE_NUM, "Global variables can only have constant initial value!\n");
 
     ASSERT(!find_variable(node -> value.var, var_list, nullptr, 1), "Variable %s has already been declarated!\n", node -> value.var);
 
-    Variable new_var = {node -> value.var, gnu_hash(node -> value.var), 0, 0};
-
-    if (node -> right) {
-        ASSERT(node -> right -> type == TYPE_NUM, "Global variables can only have constant initial value!\n");
-        new_var.init_value = node -> right -> value.dbl;
-    }
+    Variable new_var = {node -> value.var, gnu_hash(node -> value.var), get_frame_size(var_list), node -> right -> value.dbl};
 
     stack_push(&var_list -> list, new_var);
 }
@@ -648,14 +645,14 @@ hash_t gnu_hash(const char *str) {
 
 
 void print_cond(const char *cond_op, FILE *file) {
-    PRINTL("pop rax");
-    PRINTL("pop rbx");
-    PRINTL("cmp rbx, rax");
-    PRINTL("mov rdi, 1000");
+    PRINTL("pop rsi");
+    PRINTL("pop rdi");
+    PRINTL("cmp rdi, rsi");
+    PRINTL("mov rax, 1000");
     PRINTL("%s COND_%i", cond_op, line);
-    PRINTL("xor rdi, rdi");
+    PRINTL("xor rax, rax");
     PRINT("COND_%i:", line - 2);
-    PRINTL("push rdi");
+    PRINTL("push rax");
 }
 
 

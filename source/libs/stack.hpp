@@ -15,7 +15,7 @@ typedef struct {
 } Stack;
 
 
-#define POISON_VALUE {nullptr, 0xC0FFEE, 0}
+#define POISON_VALUE {nullptr, 0xC0FFEE, 0, 0}
 #define MAX_CAPACITY_VALUE 100000
 
 

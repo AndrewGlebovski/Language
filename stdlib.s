@@ -59,7 +59,7 @@ FUNC_22B14C_00076DC0:
 
     ; Check if not a number
     cmp cl, 9
-    ja .Shift
+    ja .Sign
 
     ; Add digit
     mov rbx, rax
@@ -70,16 +70,7 @@ FUNC_22B14C_00076DC0:
 
     jmp .Loop
 
-.Shift:
-    ; Mutiply integer part by 1000
-    mov rbx, rax
-    shl rbx, 5
-    mov rcx, rax
-    shl rcx, 3
-    shl rax, 10
-    sub rax, rbx
-    add rax, rcx
-
+.Sign:
     ; Check if number is negative
     test r11, r11
     je .Positive
