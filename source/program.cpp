@@ -13,14 +13,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <stdint.h>
 #include "libs/tree.hpp"
 #include "libs/stack.hpp"
 #include "libs/text.hpp"
 #include "program.hpp"
+#include "inter.hpp"
 
 
 /// Code offset in assembler output
 const int TAB_SIZE = 4;
+
+
+const size_t IR_INIT_CAPACITY = 512;
 
 
 typedef stack_data_t Variable;
@@ -67,7 +72,7 @@ do {                                                \
 } while(0)
 
 /// Calls function for assembler source code output with only argument
-#define CALL_FUNC(func_name, node_arg) func_name(node_arg, file, var_list)
+#define CALL_FUNC(func_name, node_arg) func_name(node_arg, file, var_list, ir)
 
 
 
@@ -80,37 +85,37 @@ Stack func_list = {};
 
 
 /// Reads definition sequence type node and prints result to file
-void read_def_sequence(const Node *node, FILE *file, VarList *var_list);
+void read_def_sequence(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Reads sequence type node and prints result to file
-void read_sequence(const Node *node, FILE *file, VarList *var_list);
+void read_sequence(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Add new local variable to variable list of the current scope
-void add_local_variable(const Node *node, FILE *file, VarList *var_list);
+void add_local_variable(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Add new global variable to variable list of the current scope
-void add_global_variable(const Node *node, FILE *file, VarList *var_list);
+void add_global_variable(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Add new function to function list of the current scope
-void add_function(const Node *node, FILE *file, VarList *var_list);
+void add_function(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Prints expression to file
-void add_expression(const Node *node, FILE *file, VarList *var_list);
+void add_expression(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Prints variable assign operation to file
-void add_assign(const Node *node, FILE *file, VarList *var_list);
+void add_assign(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Prints if operator to file
-void add_if(const Node *node, FILE *file, VarList *var_list);
+void add_if(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Prints while operator to file
-void add_while(const Node *node, FILE *file, VarList *var_list);
+void add_while(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Prints function call to file
-void add_function_call(const Node *node, FILE *file, VarList *var_list);
+void add_function_call(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Prints return statement to file
-void add_return(const Node *node, FILE *file, VarList *var_list);
+void add_return(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 
 /**
@@ -149,7 +154,7 @@ int get_frame_size(const VarList *varlist);
 
 
 /// Prints condition result to file
-void print_cond(const char *cond_op, FILE *file);
+void print_cond(const char *cmd_str, uint8_t cmd_opcode, FILE *file, IR *ir);
 
 
 /**
@@ -189,12 +194,15 @@ int print_program(const Tree *tree, const char *filename) {
 
     stack_constructor(&func_list, 2);
 
+    IR ir = {};
+    IR_constructor(&ir, IR_INIT_CAPACITY);
+
     const char *MAIN_FUNC = "VAR_22B14C_01B8923B";
 
     Function lib[] = {
-        {"VAR_22B14C_00076DC0", gnu_hash("VAR_22B14C_00076DC0"), 0},
-        {"VAR_22B14C_01435CD4", gnu_hash("VAR_22B14C_01435CD4"), 1},
-        {"VAR_22B14C_0062909C", gnu_hash("VAR_22B14C_0062909C"), 1},
+        {"VAR_22B14C_00076DC0", gnu_hash("VAR_22B14C_00076DC0"), 0, 0, 0},
+        {"VAR_22B14C_01435CD4", gnu_hash("VAR_22B14C_01435CD4"), 1, 0, 0},
+        {"VAR_22B14C_0062909C", gnu_hash("VAR_22B14C_0062909C"), 1, 0, 0},
     };
 
     for (int i = 0; i < (int)(sizeof(lib) / sizeof(Function)); i++) stack_push(&func_list, lib[i]);
@@ -209,13 +217,22 @@ int print_program(const Tree *tree, const char *filename) {
     SKIP_LINE();
 
     PRINT("_start:");
+
     PRINTL("call FUNC_22B14C_01B8923B");
-    PRINTL("mov rdi, rax");                 /// Set exit code
-    PRINTL("mov eax, 60");
+    create_jmp(&ir, CALL);
+
+    PRINTL("mov rdi, rax"); // COPY MAIN EXIT CODE TO SYSCALL
+    IR_add(&ir, MOV, create_reg(64, DI), create_reg(64, A));
+
+    PRINTL("mov rax, 60");
+    IR_add(&ir, MOV, create_reg(64, A), create_const(64, 60));
+
     PRINTL("syscall");
+    IR_add(&ir, SYSCALL);
+
     SKIP_LINE();
 
-    read_def_sequence(tree -> root, file, &global_list);
+    read_def_sequence(tree -> root, file, &global_list, &ir);
 
     if (global_list.list.size) {
         PRINT("section .data");
@@ -225,10 +242,18 @@ int print_program(const Tree *tree, const char *filename) {
             PRINT("%s dq %d", global_list.list.data[i].name, (int)(global_list.list.data[i].init_value * 1000));
     }
 
-    if (!find_function(MAIN_FUNC)) {
+    Function *main_func = find_function(MAIN_FUNC);
+
+    if (!main_func) {
         printf("Main function was not declarated in the current scope!\n");
         abort();
     }
+
+    set_jmp_rel_address(ir.cmds, (int32_t) main_func -> func_offset);
+
+    IR_dump(&ir, stdout);
+
+    IR_destructor(&ir);
 
     free_varlist(&global_list);
 
@@ -254,7 +279,7 @@ void include_file(const char *filename, FILE *file) {
 }
 
 
-void read_def_sequence(const Node *node, FILE *file, VarList *var_list) {
+void read_def_sequence(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     for (const Node *iter = node; iter; iter = iter -> right){
         ASSERT(iter, "Definition sequence is null!\n");
 
@@ -273,7 +298,7 @@ void read_def_sequence(const Node *node, FILE *file, VarList *var_list) {
 }
 
 
-void read_sequence(const Node *node, FILE *file, VarList *var_list) {
+void read_sequence(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     for (const Node *iter = node; iter; iter = iter -> right){
         ASSERT(iter, "Sequence is null!\n");
 
@@ -287,60 +312,71 @@ void read_sequence(const Node *node, FILE *file, VarList *var_list) {
             case TYPE_IF:       CALL_FUNC(add_if, iter -> left);                                  break;
             case TYPE_WHILE:    CALL_FUNC(add_while, iter -> left);                               break;
             case TYPE_RET:      CALL_FUNC(add_return, iter -> left);                              break;
-            case TYPE_CALL:     CALL_FUNC(add_function_call, iter -> left); PRINTL("add rsp, 8"); break;
+            case TYPE_CALL:
+                CALL_FUNC(add_function_call, iter -> left);
+
+                PRINTL("add rsp, 8");
+                IR_add(ir, ADD, create_reg(64, SP), create_const(64, 8));
+                
+                break;
             default: ASSERT(0, "Sequence left child has type %i!\n", iter -> left -> type);
         }
     }
 }
 
 
-void add_local_variable(const Node *node, FILE *file, VarList *var_list) {
+void add_local_variable(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!\n");
     ASSERT(node -> right, "New variable has no expression to assign!\n");
 
     ASSERT(!find_variable(node -> value.var, var_list, nullptr, 1), "Variable %s has already been declarated!\n", node -> value.var);
 
-    Variable new_var = {node -> value.var, gnu_hash(node -> value.var), -1-get_frame_size(var_list), 0};
+    Variable new_var = {node -> value.var, gnu_hash(node -> value.var), -1 - get_frame_size(var_list), 0, 0};
+
     stack_push(&var_list -> list, new_var);
 
-    CALL_FUNC(add_expression, node -> right);
+    CALL_FUNC(add_expression, node -> right); // THERE IS NO NEED TO POP VALUE CAUSE IT'S ALREADY ON STACK
 }
 
 
-void add_global_variable(const Node *node, FILE *file, VarList *var_list) {
+void add_global_variable(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     ASSERT(node -> type == TYPE_NVAR, "Node is not new variable type!\n");
     ASSERT(node -> right, "New variable has no expression to assign!\n");
     ASSERT(node -> right -> type == TYPE_NUM, "Global variables can only have constant initial value!\n");
 
     ASSERT(!find_variable(node -> value.var, var_list, nullptr, 1), "Variable %s has already been declarated!\n", node -> value.var);
 
-    Variable new_var = {node -> value.var, gnu_hash(node -> value.var), get_frame_size(var_list), node -> right -> value.dbl};
+    Variable new_var = {node -> value.var, gnu_hash(node -> value.var), get_frame_size(var_list), node -> right -> value.dbl, 0};
 
     stack_push(&var_list -> list, new_var);
 }
 
 
-void add_function(const Node *node, FILE *file, VarList *var_list) {
+void add_function(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     ASSERT(node -> type == TYPE_DEF, "Node is not function define type!\n");
-    
+    ASSERT(node -> right, "Function has no sequence!\n");
+
     ASSERT(!find_function(node -> value.var), "Function %s has already been declarated!\n", node -> value.var);
 
-    Function new_func = {node -> value.var, gnu_hash(node -> value.var), 0};
+    Function new_func = {node -> value.var, gnu_hash(node -> value.var), 0, 0, ir -> ip};
+
+    PRINT("FUNC_%s:", node -> value.var + 4);
+
+    PRINTL("push rbp");
+    IR_add(ir, PUSH, create_reg(64, BP));
+
+    PRINTL("mov rbp, rsp");
+    IR_add(ir, MOV, create_reg(64, BP), create_reg(64, SP));
 
     VarList args_varlist = init_varlist(var_list);
     VarList local_varlist = init_varlist(&args_varlist);
 
-    PRINT("FUNC_%s:", node -> value.var + 4);
-    PRINTL("push rbp");
-    PRINTL("mov rbp, rsp");
-
     for (const Node *par = node -> left; par; par = par -> right, new_func.index++) 
-        stack_push(&args_varlist.list, {par -> value.var, gnu_hash(par -> value.var), 2 + new_func.index});
+        stack_push(&args_varlist.list, {par -> value.var, gnu_hash(par -> value.var), 2 + new_func.index, 0, 0});
 
     stack_push(&func_list, new_func);
 
-    ASSERT(node -> right, "Function has no sequence!\n");
-    read_sequence(node -> right, file, &local_varlist);
+    read_sequence(node -> right, file, &local_varlist, ir);
 
     free_varlist(&local_varlist);
     free_varlist(&args_varlist);
@@ -349,10 +385,12 @@ void add_function(const Node *node, FILE *file, VarList *var_list) {
 }
 
 
-void add_expression(const Node *node, FILE *file, VarList *var_list) {
+void add_expression(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     switch(node -> type) {
         case TYPE_NUM: {
             PRINTL("push %d", (int)(node -> value.dbl * 1000));
+            IR_add(ir, PUSH, create_const(64, (int)(node -> value.dbl * 1000)));
+
             break;
         }
         case TYPE_VAR: {
@@ -361,8 +399,14 @@ void add_expression(const Node *node, FILE *file, VarList *var_list) {
 
             ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> value.var);
 
-            if (is_global)  PRINTL("push QWORD [%s]", var -> name);
-            else            PRINTL("push QWORD [rbp + (%i)]", var -> index * 8);
+            if (is_global) {
+                PRINTL("push QWORD [%s]", var -> name);
+                IR_add(ir, PUSH, create_mem(64, var -> index * 8));
+            }
+            else {
+                PRINTL("push QWORD [rbp + (%i)]", var -> index * 8);
+                IR_add(ir, PUSH, create_mem(64, var -> index * 8, {64, BP}));
+            }
 
             break;
         }
@@ -378,95 +422,89 @@ void add_expression(const Node *node, FILE *file, VarList *var_list) {
             switch (node -> value.op) {
                 case OP_ADD: {
                     PRINTL("pop rdi");
+                    IR_add(ir, POP, create_reg(64, DI));
+
                     PRINTL("pop rsi");
+                    IR_add(ir, POP, create_reg(64, SI));
+
                     PRINTL("add rdi, rsi");
+                    IR_add(ir, ADD, create_reg(64, DI), create_reg(64, SI));
+
                     PRINTL("push rdi");
+                    IR_add(ir, PUSH, create_reg(64, DI));
+
                     break;
                 }
                 case OP_SUB: {
                     PRINTL("pop rsi");
+                    IR_add(ir, POP, create_reg(64, SI));
+
                     PRINTL("pop rdi");
+                    IR_add(ir, POP, create_reg(64, DI));
+
                     PRINTL("sub rdi, rsi");
+                    IR_add(ir, SUB, create_reg(64, DI), create_reg(64, SI));
+
                     PRINTL("push rdi");
+                    IR_add(ir, PUSH, create_reg(64, DI));
+
                     break;
                 }
                 case OP_MUL: {
-                    PRINTL("pop rax");
                     PRINTL("pop rdi");
+                    IR_add(ir, POP, create_reg(64, DI));
+
+                    PRINTL("pop rax");
+                    IR_add(ir, POP, create_reg(64, A));
 
                     PRINTL("imul edi");
-                    PRINTL("shl rdx, 32");
-                    PRINTL("add rax, rdx");
+                    IR_add(ir, IMUL, create_reg(32, DI));
 
-                    PRINTL("mov rdx, rax");
-                    PRINTL("shr rdx, 32");
                     PRINTL("mov edi, 1000");
+                    IR_add(ir, MOV, create_reg(32, DI), create_const(64, 1000));
+
                     PRINTL("idiv edi");
+                    IR_add(ir, IDIV, create_reg(32, DI));
                     
                     PRINTL("cdqe");
+                    IR_add(ir, CDQE);
+
                     PRINTL("push rax");
+                    IR_add(ir, PUSH, create_reg(64, A));
+
                     break;
                 }
                 case OP_DIV: {
                     PRINTL("pop rdi");
+                    IR_add(ir, POP, create_reg(64, DI));
+
                     PRINTL("pop rax");
+                    IR_add(ir, POP, create_reg(64, A));
                     
-                    PRINTL("mov rdx, rax");
-                    PRINTL("shl rdx, 5");
-                    PRINTL("mov rcx, rax");
-                    PRINTL("shl rcx, 3");
-                    PRINTL("shl rax, 10");
-                    PRINTL("sub rax, rdx");
-                    PRINTL("add rax, rcx");
-                    
-                    PRINTL("mov rdx, rax");
-                    PRINTL("shr rdx, 32");
+                    PRINTL("mov esi, 1000");
+                    IR_add(ir, MOV, create_reg(32, SI), create_const(64, 1000));
+
+                    PRINTL("imul esi");
+                    IR_add(ir, IMUL, create_reg(32, SI));
+
                     PRINTL("idiv edi");
+                    IR_add(ir, IDIV, create_reg(32, DI));
 
                     PRINTL("cdqe");
+                    IR_add(ir, CDQE);
+
                     PRINTL("push rax");
+                    IR_add(ir, PUSH, create_reg(64, A));
 
                     break;
                 }
 
-                case OP_EQ:     print_cond("je", file);  break;
-                case OP_NEQ:    print_cond("jne", file); break;
-                case OP_GRE:    print_cond("jg", file);  break;
-                case OP_LES:    print_cond("jl", file);  break;
-                case OP_GEQ:    print_cond("jge", file); break;
-                case OP_LEQ:    print_cond("jle", file); break;
-
-                case OP_REF: {
-                    ASSERT(node -> right, "No expression after referencing operation!\n");
-
-                    add_expression(node -> right, file, var_list);
-
-                    PRINTL("pop rdi");
-                    PRINTL("push [rdi]");
-
-                    break;
-                }
-
-                case OP_LOC: {
-                    ASSERT(node -> right, "No identificator after locate operation!\n");
-                    ASSERT(node -> right -> type == TYPE_VAR, "No identificator after locate operation!\n");
-
-                    int is_global = 0;
-                    Variable *var = find_variable(node -> right -> value.var, var_list, &is_global);
-
-                    ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> value.var);
-
-                    if (is_global) {
-                        PRINTL("lea rdi, [%s]", var -> name);
-                        PRINTL("push rdi");
-                    }
-                    else {
-                        PRINTL("lea rdi, [rbp + (%i)]", var -> index * 8);
-                        PRINTL("push rdi");
-                    }
-
-                    break;
-                }
+                case OP_EQ:     print_cond("je", JE, file, ir);     break;
+                case OP_NEQ:    print_cond("jne", JNE, file, ir);   break;
+                case OP_GRE:    print_cond("jg", JG, file, ir);     break;
+                case OP_LES:    print_cond("jl", JL, file, ir);     break;
+                case OP_GEQ:    print_cond("jge", JGE, file, ir);   break;
+                case OP_LEQ:    print_cond("jle", JLE, file, ir);   break;
 
                 default: ASSERT(0, "Unexpected operator %i in expression!\n", node -> value.op);
             }
@@ -478,93 +516,114 @@ void add_expression(const Node *node, FILE *file, VarList *var_list) {
 }
 
 
-void add_assign(const Node *node, FILE *file, VarList *var_list) {
+void add_assign(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     ASSERT(node -> type == TYPE_OP && node -> value.op == OP_ASS, "Assign expect op %i, but %i got!\n", OP_ASS, node -> value.op);
-
-    ASSERT(node -> right, "No expression to assign!\n");
-    CALL_FUNC(add_expression, node -> right);
-
     ASSERT(node -> left, "No variable to assign!\n");
+    ASSERT(node -> left -> type == TYPE_VAR, "Can't assign value to this node!\n");
+    ASSERT(node -> right, "No expression to assign!\n");
+
+    CALL_FUNC(add_expression, node -> right);
     
-    if (node -> left -> type == TYPE_VAR) {
-        int is_global = 0;
-        Variable *var = find_variable(node -> left -> value.var, var_list, &is_global);
+    int is_global = 0;
+    Variable *var = find_variable(node -> left -> value.var, var_list, &is_global);
 
-        ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> left -> value.var);
+    ASSERT(var, "Variable %s is not declarated in the current scope!\n", node -> left -> value.var);
 
-        if (is_global)  PRINTL("pop QWORD [%s]", var -> name);
-        else            PRINTL("pop QWORD [rbp + (%i)]", var -> index * 8);
-    }
-    else if (node -> left -> type == TYPE_OP && node -> left -> value.op == OP_REF) {
-        ASSERT(node -> left -> right, "No expression after referencing operation!\n");
-
-        add_expression(node -> left -> right, file, var_list);
-
-        PRINTL("pop rdi");
-        PRINTL("pop [rdi]");
+    if (is_global) {
+        PRINTL("pop QWORD [%s]", var -> name);
+        IR_add(ir, POP, create_mem(64, var -> index * 8));
     }
     else {
-        ASSERT(0, "Can't assign value to this node!\n");
+        PRINTL("pop QWORD [rbp + (%i)]", var -> index * 8);
+        IR_add(ir, POP, create_mem(64, var -> index * 8, {64, BP}));
     }
 }
 
 
-void add_if(const Node *node, FILE *file, VarList *var_list) {
+void add_if(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     ASSERT(node -> type == TYPE_IF, "If expect type %i, but %i got!\n", TYPE_IF, node -> type);
-
     ASSERT(node -> left, "If has no condition!\n");
+    ASSERT(node -> right, "If has no branch!\n");
+    ASSERT(node -> right -> left, "If has no sequence after it!\n");
+
     CALL_FUNC(add_expression, node -> left);
 
     PRINTL("pop rdi");
-    PRINTL("test rdi, rdi");
-    int cur_line = line;
-    PRINTL("je IF_%i_FALSE", cur_line);
+    IR_add(ir, POP, create_reg(64, DI));
 
-    ASSERT(node -> right -> left, "If has no sequence after it!\n");
+    PRINTL("test rdi, rdi");
+    IR_add(ir, TEST, create_reg(64, DI), create_reg(64, DI));
+
+    int cur_line = line;
+
+    size_t jmp_false_index = ir -> size;
+
+    PRINTL("je IF_%i_FALSE", cur_line);
+    create_jmp(ir, JE);
 
     VarList new_varlist = init_varlist(var_list);
-    read_sequence(node -> right -> left, file, &new_varlist);
+    read_sequence(node -> right -> left, file, &new_varlist, ir);
     free_varlist(&new_varlist);
 
-    PRINTL("jmp IF_%i_END", cur_line);
-    PRINT("IF_%i_FALSE:", cur_line);
-
     if (node -> right -> right) {
-        new_varlist = init_varlist(var_list);
-        read_sequence(node -> right -> right, file, &new_varlist);
-        free_varlist(&new_varlist);
-    }
+        size_t jmp_end_index = ir -> size;
 
-    PRINT("IF_%i_END:", cur_line);
+        PRINTL("jmp IF_%i_END", cur_line);
+        create_jmp(ir, JMP);
+
+        PRINT("IF_%i_FALSE:", cur_line);
+        set_jmp_rel_address(ir -> cmds + jmp_false_index, (int32_t) ir -> ip);
+
+        new_varlist = init_varlist(var_list);
+        read_sequence(node -> right -> right, file, &new_varlist, ir);
+        free_varlist(&new_varlist);
+
+        PRINT("IF_%i_END:", cur_line);
+        set_jmp_rel_address(ir -> cmds + jmp_end_index, (int32_t) ir -> ip);
+    }
+    else {
+        PRINT("IF_%i_FALSE:", cur_line);
+        set_jmp_rel_address(ir -> cmds + jmp_false_index, (int32_t) ir -> ip);
+    }
 }
 
 
-void add_while(const Node *node, FILE *file, VarList *var_list) {
+void add_while(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     ASSERT(node -> type == TYPE_WHILE, "While expect type %i, but %i got!\n", TYPE_WHILE, node -> type);
+    ASSERT(node -> right, "While has no sequence after it!\n");
+    ASSERT(node -> left, "While has no condition!\n");
 
     int cur_line = line;
 
-    PRINTL("jmp CYCLE_%i_CONDITION", cur_line);
-    PRINTL("CYCLE_%i:", cur_line);
+    size_t jmp_index = ir -> size;
 
-    ASSERT(node -> right, "While has no sequence after it!\n");
+    PRINTL("jmp CYCLE_%i_CONDITION", cur_line);
+    create_jmp(ir, JMP);
+
+    PRINTL("CYCLE_%i:", cur_line);
+    size_t cycle_ip = ir -> ip;
 
     VarList new_varlist = init_varlist(var_list);
-    read_sequence(node -> right, file, &new_varlist);
+    read_sequence(node -> right, file, &new_varlist, ir);
     free_varlist(&new_varlist);
 
     PRINTL("CYCLE_%i_CONDITION:", cur_line);
+    set_jmp_rel_address(ir -> cmds + jmp_index, (int32_t) ir -> ip);
 
-    ASSERT(node -> left, "While has no condition!\n");
     CALL_FUNC(add_expression, node -> left);
 
     PRINTL("pop rdi");
+    IR_add(ir, POP, create_reg(64, DI));
+
     PRINTL("test rdi, rdi");
+    IR_add(ir, TEST, create_reg(64, DI), create_reg(64, DI));
+
     PRINTL("jne CYCLE_%i:", cur_line);
+    IR_add(ir, JNE, create_const(64, cycle_ip));
 }
 
 
-void add_function_call(const Node *node, FILE *file, VarList *var_list) {
+void add_function_call(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     ASSERT(node -> type == TYPE_CALL, "Function call expect type %i, but %i got!\n", TYPE_CALL, node -> type);
 
     Function *func = find_function(node -> value.var);
@@ -582,23 +641,36 @@ void add_function_call(const Node *node, FILE *file, VarList *var_list) {
     ASSERT(arg_count == func -> index, "Function %s expects %i arguments, but got %i!\n", func -> name, func -> index, arg_count);
 
     PRINTL("call FUNC_%s", node -> value.var + 4);
+    create_jmp(ir, CALL);
+    set_jmp_rel_address(ir -> cmds + ir -> size - 1, (int32_t) func -> func_offset);
 
-    PRINTL("add rsp, %d", func -> index * 8);
+    if (func -> index) {
+        PRINTL("add rsp, %d", func -> index * 8);
+        IR_add(ir, ADD, create_reg(64, SP), create_const(64, func -> index * 8));
+    }
 
     PRINTL("push rax");
+    IR_add(ir, PUSH, create_reg(64, A));
 }
 
 
-void add_return(const Node *node, FILE *file, VarList *var_list) {
+void add_return(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     ASSERT(node -> type == TYPE_RET, "Return expect type %i, but %i got!\n", TYPE_RET, node -> type);
-
     ASSERT(node -> left, "Return has no expression!\n");
+
     CALL_FUNC(add_expression, node -> left);
+
     PRINTL("pop rax");
+    IR_add(ir, POP, create_reg(64, A));
 
     PRINTL("mov rsp, rbp");
+    IR_add(ir, MOV, create_reg(64, SP), create_reg(64, BP));
+
     PRINTL("pop rbp");
+    IR_add(ir, POP, create_reg(64, BP));
+
     PRINTL("ret");
+    IR_add(ir, RET);
 }
 
 
@@ -644,15 +716,32 @@ hash_t gnu_hash(const char *str) {
 }
 
 
-void print_cond(const char *cond_op, FILE *file) {
+void print_cond(const char *cmd_str, uint8_t cmd_opcode, FILE *file, IR *ir) {
     PRINTL("pop rsi");
+    IR_add(ir, POP, create_reg(64, SI));
+
     PRINTL("pop rdi");
+    IR_add(ir, POP, create_reg(64, DI));
+
     PRINTL("cmp rdi, rsi");
+    IR_add(ir, CMP, create_reg(64, DI), create_reg(64, SI));
+
     PRINTL("mov rax, 1000");
-    PRINTL("%s COND_%i", cond_op, line);
+    IR_add(ir, MOV, create_reg(64, A), create_const(64, 1000));
+
+    size_t jmp_index = ir -> size;
+
+    PRINTL("%s COND_%i", cmd_str, line);
+    create_jmp(ir, cmd_opcode);
+
     PRINTL("xor rax, rax");
+    IR_add(ir, XOR, create_reg(64, A), create_reg(64, A));
+
     PRINT("COND_%i:", line - 2);
+    set_jmp_rel_address(ir -> cmds + jmp_index, (int32_t) ir -> ip);
+
     PRINTL("push rax");
+    IR_add(ir, PUSH, create_reg(64, A));
 }
 
 

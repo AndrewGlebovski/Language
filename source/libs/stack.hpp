@@ -1,9 +1,10 @@
 /// Stack data type
 typedef struct {
-    const char *name        = nullptr;  ///< Variable name
-    unsigned long long hash = 0;        ///< Variable name hash sum
-    int index               = 0;        ///< Variable offset from RBP
-    double init_value       = 0;        ///< Variable initial value
+    const char *name;           ///< Variable name
+    unsigned long long hash;    ///< Variable name hash sum
+    int index;                  ///< Variable offset from RBP
+    double init_value;          ///< Variable initial value
+    size_t func_offset;         ///< Function byte offset
 } stack_data_t;
 
 
@@ -15,7 +16,7 @@ typedef struct {
 } Stack;
 
 
-#define POISON_VALUE {nullptr, 0xC0FFEE, 0, 0}
+#define POISON_VALUE {nullptr, 0xC0FFEE, 0, 0, 0}
 #define MAX_CAPACITY_VALUE 100000
 
 
