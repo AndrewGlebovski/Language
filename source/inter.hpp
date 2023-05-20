@@ -16,13 +16,13 @@ typedef enum {
 /// Registers IDs for arg_reg_t
 typedef enum {
     A,
-    B,
     C,
     D,
+    B,
+    SP,
+    BP,
     SI,
     DI,
-    BP,
-    SP,
     R8,
     R9,
     R10,
@@ -31,7 +31,7 @@ typedef enum {
     R13,
     R14,
     R15,
-} REGS_ID;
+} REGISTER_ID;
 
 
 typedef struct {
@@ -87,12 +87,12 @@ typedef enum {
     AND     = 0x07,
     OR      = 0x08,
     XOR     = 0x09,
-    SHR     = 0x0A,
-    SHL     = 0x0B,
+    // SHR     = 0x0A,
+    // SHL     = 0x0B,
     
     // Increment
-    INC     = 0x0C,
-    DEC     = 0x0D,
+    // INC     = 0x0C,
+    // DEC     = 0x0D,
 
     // Calls and rets
     CALL    = 0x0E,
@@ -100,7 +100,7 @@ typedef enum {
 
     // Individual
     CDQE    = 0x10,
-    LEA     = 0x11,
+    // LEA     = 0x11,
 
     // Comparsion
     TEST    = 0x12,
@@ -119,9 +119,9 @@ typedef enum {
     JB      = 0x1D,
     JBE     = 0x1E,
 
-    // Syscal
-    SYSCALL = 0X1F,
-} OPCODES;
+    // Syscall
+    SYSCALL = 0x1F,
+} COMMAND_ID;
 
 
 /// Holds assembler command and its arguments
@@ -181,10 +181,10 @@ int IR_dump(const IR *ir, FILE *stream);
 /**
  * \brief Writes command byte code to file
  * \param [in]  cmd     Assembler command
- * \param [out] file    Output file descriptor
+ * \param [out] buffer  Output buffer for opcode
  * \return Size of the command in bytes
 */
-size_t write_command(const AsmCmd *cmd, int file);
+size_t write_command(const AsmCmd *cmd, uint8_t *buffer);
 
 
 /**

@@ -46,6 +46,17 @@ int IR_resize(IR *ir);
 
 
 /**
+ * \brief Writes command byte code in two 64-bit register-type operands pattern
+ * \param [in]  opcode  Assembler command opcode
+ * \param [in]  reg1    First register argument
+ * \param [in]  reg2    Second register argument
+ * \param [out] buffer  Buffer to write byte code in
+ * \return Command size in bytes
+*/
+size_t write_2regs64_pattern(uint8_t opcode, arg_reg_t *reg1, arg_reg_t *reg2, uint8_t *buffer);
+
+
+/**
  * \brief Prints argument of register type to stream
  * \param [in]  reg_arg Register argument
  * \param [out] file    Output stream
@@ -144,11 +155,23 @@ int IR_dump(const IR *ir, FILE *stream) {
     fprintf(stream, "  Commands[%p]:\n", ir -> cmds);
 
     size_t ip = 0;
+    uint8_t buffer[16] = "";
 
     for (size_t i = 0; i < ir -> size; i++) {
-        fprintf(stream, "    [%06lu] ", ip);
+        
+        fprintf(stream, "    [%06lu]", ip);
+
+        size_t size = write_command(ir -> cmds + i, buffer);
+
+        for(size_t j = 0; j < size; j ++) fprintf(stream, " %02hhx", buffer[j]);
+
+        fprintf(stream, "\n             ");
+
         print_command(ir -> cmds + i, stream);
-        ip += get_command_size(ir -> cmds + i);
+
+        fputc('\n', stream);
+
+        ip += size;
     }
 
     putchar('\n');
@@ -157,11 +180,271 @@ int IR_dump(const IR *ir, FILE *stream) {
 }
 
 
-size_t write_command(const AsmCmd *cmd, int file) {
-    ASSERT(cmd, 0, "Command is nullptr!\n");
-    ASSERT(file > -1, 0, "File descriptor is -1!\n");
 
-    return 8;
+
+#define PUSH_BYTE(byte) buffer[size++] = byte
+
+#define PUSH_INT(integer) *(int32_t *)(buffer + size) = (int32_t) integer; size += 4
+
+#define COMBINE_CMD(cmd_code, args_size, arg1_type, arg2_type) \
+    (((uint32_t) cmd_code << 24) | ((uint32_t) args_size << 16) | ((uint32_t) arg1_type << 8) | (uint32_t) arg2_type)
+
+#define COMBINE_BYTES(upper_byte, lower_byte) (((upper_byte) << 4U) | (lower_byte))
+
+#define COMBINE_REG11(reg1, reg2) (0b11000000 | ((reg1) << 3U) | (reg2))
+
+#define COMBINE_REG10(reg1, reg2) (0b10000000 | ((reg1) << 3U) | (reg2))
+
+#define REG_ID(asm_arg) asm_arg.value.reg_arg.reg_id
+
+#define R8_CHECK(reg_id, prefix)    \
+if (reg_id >= R8) {                 \
+    reg_id -= 0x8;                  \
+    PUSH_BYTE(prefix);              \
+}
+
+
+size_t write_2regs64_pattern(uint8_t opcode, arg_reg_t *reg1, arg_reg_t *reg2, uint8_t *buffer) {
+    size_t size = 0;
+
+    if (reg1 -> reg_id <= DI && reg2 -> reg_id <= DI) {
+        PUSH_BYTE(0x48);
+    }
+    else if (reg1 -> reg_id <= DI && reg2 -> reg_id > DI) {
+        reg2 -> reg_id -= 0x8;
+        PUSH_BYTE(0x4c);
+    }
+    else if (reg1 -> reg_id > DI && reg2 -> reg_id <= DI) {
+        reg1 -> reg_id -= 0x8;
+        PUSH_BYTE(0x49);
+    }
+    else {
+        reg1 -> reg_id -= 0x8;
+        reg2 -> reg_id -= 0x8;
+        PUSH_BYTE(0x4d);
+    }
+
+    PUSH_BYTE(opcode);
+    PUSH_BYTE(COMBINE_REG11(reg2 -> reg_id, reg1 -> reg_id));
+
+    return size;
+}
+
+
+size_t write_command(const AsmCmd *cmd, uint8_t *buffer) {
+    ASSERT(cmd, 0, "Command is nullptr!\n");
+    ASSERT(buffer, 0, "Buffer is nullptr!\n");
+
+    size_t size = 0, args_size = cmd -> arg1.value.const_arg.size;
+
+    AsmArg arg1 = cmd -> arg1, arg2 = cmd -> arg2;
+
+    switch (COMBINE_CMD(cmd -> code, args_size, arg1.type, arg2.type)) {
+        case COMBINE_CMD(MOV, 64, REG, REG):
+            size += write_2regs64_pattern(0x89, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
+            break;
+        
+        case COMBINE_CMD(MOV, 64, REG, CONST):
+            R8_CHECK(REG_ID(arg1), 0x49)
+            else PUSH_BYTE(0x48);
+
+            PUSH_BYTE(0xc7);
+            PUSH_BYTE(COMBINE_REG11(0, REG_ID(arg1)));
+            PUSH_INT(arg2.value.const_arg.value);
+            break;
+
+        case COMBINE_CMD(PUSH, 64, REG, 0):
+            R8_CHECK(REG_ID(arg1), 0x41);
+
+            PUSH_BYTE(COMBINE_BYTES(0x5, REG_ID(arg1)));
+            break;
+        
+        case COMBINE_CMD(PUSH, 64, CONST, 0):
+            PUSH_BYTE(0x68);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+
+        case COMBINE_CMD(PUSH, 64, MEM, 0):
+            if (arg1.value.mem_arg.base.size) {
+                R8_CHECK(arg1.value.mem_arg.base.reg_id, 0x41);
+
+                PUSH_BYTE(0xff);
+                PUSH_BYTE(COMBINE_REG10(0b110, arg1.value.mem_arg.base.reg_id));
+            }
+            else {
+                PUSH_BYTE(0xff);
+                PUSH_BYTE(0x04);
+                PUSH_BYTE(0x25);
+            }
+
+            PUSH_INT(arg1.value.mem_arg.displace);
+            break;
+
+        case COMBINE_CMD(POP, 64, REG, 0):
+            R8_CHECK(REG_ID(arg1), 0x41);
+
+            PUSH_BYTE(COMBINE_BYTES(0x5, REG_ID(arg1) + 0x8));
+            break;
+
+        case COMBINE_CMD(POP, 64, MEM, 0):
+            if (arg1.value.mem_arg.base.size) {
+                R8_CHECK(arg1.value.mem_arg.base.reg_id, 0x41);
+
+                PUSH_BYTE(0x8f);
+                PUSH_BYTE(COMBINE_REG10(0b110, arg1.value.mem_arg.base.reg_id));
+            }
+            else {
+                PUSH_BYTE(0x8f);
+                PUSH_BYTE(0x04);
+                PUSH_BYTE(0x25);
+            }
+
+            PUSH_INT(arg1.value.mem_arg.displace);
+            break;
+
+        case COMBINE_CMD(ADD, 64, REG, REG):
+            size += write_2regs64_pattern(0x01, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
+            break;
+        
+        case COMBINE_CMD(ADD, 64, REG, CONST):
+            R8_CHECK(REG_ID(arg1), 0x49)
+            else PUSH_BYTE(0x48);
+
+            PUSH_BYTE(0x81);
+            PUSH_BYTE(COMBINE_REG11(0, REG_ID(arg1)));
+            PUSH_INT(arg2.value.const_arg.value);
+            break;
+        
+        case COMBINE_CMD(SUB, 64, REG, REG):
+            size += write_2regs64_pattern(0x29, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
+            break;
+
+        case COMBINE_CMD(IMUL, 64, REG, 0):
+            R8_CHECK(REG_ID(arg1), 0x49)
+            else PUSH_BYTE(0x48);
+
+            PUSH_BYTE(0xf7);
+            PUSH_BYTE(COMBINE_REG11(0b101, REG_ID(arg1)));
+            break;
+        
+        case COMBINE_CMD(IDIV, 64, REG, 0):
+            R8_CHECK(REG_ID(arg1), 0x49)
+            else PUSH_BYTE(0x48);
+
+            PUSH_BYTE(0xf7);
+            PUSH_BYTE(COMBINE_REG11(0b101, REG_ID(arg1)));
+            break;
+
+        case COMBINE_CMD(AND, 64, REG, REG):
+            size += write_2regs64_pattern(0x21, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
+            break;
+        
+        case COMBINE_CMD(OR, 64, REG, REG):
+            size += write_2regs64_pattern(0x09, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
+            break;
+        
+        case COMBINE_CMD(XOR, 64, REG, REG):
+            size += write_2regs64_pattern(0x31, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
+            break;
+
+        case COMBINE_CMD(RET, 0, 0, 0):
+            PUSH_BYTE(0xc3);
+            break;
+
+        case COMBINE_CMD(CDQE, 0, 0, 0):
+            PUSH_BYTE(0x48);
+            PUSH_BYTE(0x98);
+            break;
+
+        case COMBINE_CMD(TEST, 64, REG, REG):
+            size += write_2regs64_pattern(0x85, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
+            break;
+        
+        case COMBINE_CMD(CMP, 64, REG, REG):
+            size += write_2regs64_pattern(0x39, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
+            break;
+
+        case COMBINE_CMD(JMP, 32, CONST, 0):
+            PUSH_BYTE(0xe9);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+        
+        case COMBINE_CMD(JE, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x84);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+        
+        case COMBINE_CMD(JNE, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x85);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+        
+        case COMBINE_CMD(JG, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x8f);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+        
+        case COMBINE_CMD(JGE, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x8d);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+
+        case COMBINE_CMD(JL, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x8c);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+        
+        case COMBINE_CMD(JLE, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x8e);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+        
+        case COMBINE_CMD(JA, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x87);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+
+        case COMBINE_CMD(JAE, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x83);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+        
+        case COMBINE_CMD(JB, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x82);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+
+        case COMBINE_CMD(JBE, 32, CONST, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x86);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+
+        case COMBINE_CMD(SYSCALL, 0, 0, 0):
+            PUSH_BYTE(0x0f);
+            PUSH_BYTE(0x05);
+            break;
+
+        case COMBINE_CMD(CALL, 32, CONST, 0):
+            PUSH_BYTE(0xe8);
+            PUSH_INT(arg1.value.const_arg.value);
+            break;
+
+        default: 
+            printf("Uknown command combination!\n");
+            break;
+    }
+
+    return size;
 }
 
 
@@ -180,14 +463,14 @@ void print_command(const AsmCmd *cmd, FILE *file) {
         case AND:       fprintf(file, "and "); break;
         case OR:        fprintf(file, "or "); break;
         case XOR:       fprintf(file, "xor "); break;
-        case SHR:       fprintf(file, "shr "); break;
-        case SHL:       fprintf(file, "shl "); break;
-        case INC:       fprintf(file, "inc "); break;
-        case DEC:       fprintf(file, "dec "); break;
+        // case SHR:       fprintf(file, "shr "); break;
+        // case SHL:       fprintf(file, "shl "); break;
+        // case INC:       fprintf(file, "inc "); break;
+        // case DEC:       fprintf(file, "dec "); break;
         case CALL:      fprintf(file, "call "); break;
         case RET:       fprintf(file, "ret "); break;
         case CDQE:      fprintf(file, "cdqe"); break;
-        case LEA:       fprintf(file, "lea "); break;
+        // case LEA:       fprintf(file, "lea "); break;
         case TEST:      fprintf(file, "test "); break;
         case CMP:       fprintf(file, "cmp "); break;
         case JMP:       fprintf(file, "jmp "); break;
@@ -213,8 +496,6 @@ void print_command(const AsmCmd *cmd, FILE *file) {
             print_argument(&cmd -> arg2, file);
         }
     }
-
-    fputc('\n', file);
 }
 
 
@@ -256,7 +537,7 @@ void print_register_argument(const arg_reg_t *reg_arg, FILE *file) {
     }
 
     if (reg_arg -> reg_id < R8) {
-        if (reg_arg -> size >= 16 && reg_arg -> reg_id < SI) {
+        if (reg_arg -> size >= 16 && reg_arg -> reg_id <= B) {
             fputc('x', file);
         }
         else if (reg_arg -> size == 8) {
@@ -299,8 +580,8 @@ void print_memory_argument(const arg_mem_t *mem_arg, FILE *file) {
 
 size_t get_command_size(const AsmCmd *cmd) {
     ASSERT(cmd, 0, "Command is nullptr!\n");
-
-    return 8;
+    uint8_t buffer[16] = "";
+    return write_command(cmd, buffer);
 }
 
 

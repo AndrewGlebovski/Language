@@ -457,14 +457,14 @@ void add_expression(const Node *node, FILE *file, VarList *var_list, IR *ir) {
                     PRINTL("pop rax");
                     IR_add(ir, POP, create_reg(64, A));
 
-                    PRINTL("imul edi");
-                    IR_add(ir, IMUL, create_reg(32, DI));
+                    PRINTL("imul rdi");
+                    IR_add(ir, IMUL, create_reg(64, DI));
 
-                    PRINTL("mov edi, 1000");
-                    IR_add(ir, MOV, create_reg(32, DI), create_const(64, 1000));
+                    PRINTL("mov rdi, 1000");
+                    IR_add(ir, MOV, create_reg(64, DI), create_const(64, 1000));
 
-                    PRINTL("idiv edi");
-                    IR_add(ir, IDIV, create_reg(32, DI));
+                    PRINTL("idiv rdi");
+                    IR_add(ir, IDIV, create_reg(64, DI));
                     
                     PRINTL("cdqe");
                     IR_add(ir, CDQE);
@@ -481,14 +481,14 @@ void add_expression(const Node *node, FILE *file, VarList *var_list, IR *ir) {
                     PRINTL("pop rax");
                     IR_add(ir, POP, create_reg(64, A));
                     
-                    PRINTL("mov esi, 1000");
-                    IR_add(ir, MOV, create_reg(32, SI), create_const(64, 1000));
+                    PRINTL("mov rsi, 1000");
+                    IR_add(ir, MOV, create_reg(64, SI), create_const(64, 1000));
 
-                    PRINTL("imul esi");
-                    IR_add(ir, IMUL, create_reg(32, SI));
+                    PRINTL("imul rsi");
+                    IR_add(ir, IMUL, create_reg(64, SI));
 
-                    PRINTL("idiv edi");
-                    IR_add(ir, IDIV, create_reg(32, DI));
+                    PRINTL("idiv rdi");
+                    IR_add(ir, IDIV, create_reg(64, DI));
 
                     PRINTL("cdqe");
                     IR_add(ir, CDQE);
