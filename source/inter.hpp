@@ -65,48 +65,34 @@ typedef union {
 
 /// Holds argument for assembler command
 typedef struct {
-    uint8_t type = 0;
-    arg_t value = {};
+    uint8_t type = 0;           ///< Argument type
+    arg_t value = {};           ///< Argument value
 } AsmArg;
 
 
-/// Assembler commands id
+/// Assembler commands IDs
 typedef enum {
-    // Memory operations
     MOV     = 0x00,
     PUSH    = 0x01,
     POP     = 0x02,
 
-    // Arithmetic operations
     ADD     = 0x03,
     SUB     = 0x04,
     IMUL    = 0x05,
     IDIV    = 0x06,
 
-    // Bit operations
     AND     = 0x07,
     OR      = 0x08,
     XOR     = 0x09,
-    // SHR     = 0x0A,
-    // SHL     = 0x0B,
-    
-    // Increment
-    // INC     = 0x0C,
-    // DEC     = 0x0D,
 
-    // Calls and rets
     CALL    = 0x0E,
     RET     = 0x0F,
 
-    // Individual
     CDQE    = 0x10,
-    // LEA     = 0x11,
 
-    // Comparsion
     TEST    = 0x12,
     CMP     = 0x13,
 
-    // Jumps (unconditional and conditional)
     JMP     = 0x14,
     JE      = 0x15,
     JNE     = 0x16,
@@ -119,25 +105,24 @@ typedef enum {
     JB      = 0x1D,
     JBE     = 0x1E,
 
-    // Syscall
     SYSCALL = 0x1F,
 } COMMAND_ID;
 
 
 /// Holds assembler command and its arguments
 typedef struct {
-    uint8_t code = 0;
-    AsmArg arg1 = {};
-    AsmArg arg2 = {};
+    uint8_t code = 0;           ///< Command ID
+    AsmArg arg1 = {};           ///< First argument
+    AsmArg arg2 = {};           ///< Second argument
 } AsmCmd;
 
 
 /// Program intermediate representation
 typedef struct {
-    AsmCmd *cmds = nullptr;
-    size_t capacity = 0;
-    size_t size = 0;
-    size_t ip = 0;
+    AsmCmd *cmds = nullptr;     ///< Buffer of assembler commands
+    size_t capacity = 0;        ///< Buffer capacity
+    size_t size = 0;            ///< Commands count in buffer
+    size_t ip = 0;              ///< Commands total size in bytes
 } IR;
 
 
@@ -179,9 +164,19 @@ int IR_dump(const IR *ir, FILE *stream);
 
 
 /**
+ * \brief Writes commands opcodes to buffer
+ * \param [in]  ir      Intermediate representation
+ * \param [out] buffer  Output buffer for opcodes
+ * \return Non zero value means error
+*/
+int IR_write(const IR *ir, uint8_t *buffer);
+
+
+/**
  * \brief Writes command byte code to file
  * \param [in]  cmd     Assembler command
  * \param [out] buffer  Output buffer for opcode
+ * \note MEM operands with scale or index are not supported
  * \return Size of the command in bytes
 */
 size_t write_command(const AsmCmd *cmd, uint8_t *buffer);

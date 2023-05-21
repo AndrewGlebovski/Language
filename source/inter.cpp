@@ -180,6 +180,17 @@ int IR_dump(const IR *ir, FILE *stream) {
 }
 
 
+int IR_write(const IR *ir, uint8_t *buffer) {
+    VERIFY(ir);
+
+    size_t ip = 0;
+    for (size_t i = 0; i < ir -> size; i++)
+        ip += write_command(ir -> cmds + i, buffer + ip);
+
+    return 0;
+}
+
+
 
 
 #define PUSH_BYTE(byte) buffer[size++] = byte
@@ -253,23 +264,25 @@ size_t write_command(const AsmCmd *cmd, uint8_t *buffer) {
             PUSH_INT(arg2.value.const_arg.value);
             break;
 
-        case COMBINE_CMD(PUSH, 64, REG, 0):
+        case COMBINE_CMD(PUSH, 64, REG, NONE):
             R8_CHECK(REG_ID(arg1), 0x41);
 
             PUSH_BYTE(COMBINE_BYTES(0x5, REG_ID(arg1)));
             break;
         
-        case COMBINE_CMD(PUSH, 64, CONST, 0):
+        case COMBINE_CMD(PUSH, 64, CONST, NONE):
             PUSH_BYTE(0x68);
             PUSH_INT(arg1.value.const_arg.value);
             break;
 
-        case COMBINE_CMD(PUSH, 64, MEM, 0):
+        case COMBINE_CMD(PUSH, 64, MEM, NONE):
             if (arg1.value.mem_arg.base.size) {
                 R8_CHECK(arg1.value.mem_arg.base.reg_id, 0x41);
 
                 PUSH_BYTE(0xff);
                 PUSH_BYTE(COMBINE_REG10(0b110, arg1.value.mem_arg.base.reg_id));
+
+                // SCALE AND INDEX REGISTERS ARE NOT SUPPORTED
             }
             else {
                 PUSH_BYTE(0xff);
@@ -280,18 +293,20 @@ size_t write_command(const AsmCmd *cmd, uint8_t *buffer) {
             PUSH_INT(arg1.value.mem_arg.displace);
             break;
 
-        case COMBINE_CMD(POP, 64, REG, 0):
+        case COMBINE_CMD(POP, 64, REG, NONE):
             R8_CHECK(REG_ID(arg1), 0x41);
 
             PUSH_BYTE(COMBINE_BYTES(0x5, REG_ID(arg1) + 0x8));
             break;
 
-        case COMBINE_CMD(POP, 64, MEM, 0):
+        case COMBINE_CMD(POP, 64, MEM, NONE):
             if (arg1.value.mem_arg.base.size) {
                 R8_CHECK(arg1.value.mem_arg.base.reg_id, 0x41);
 
                 PUSH_BYTE(0x8f);
-                PUSH_BYTE(COMBINE_REG10(0b110, arg1.value.mem_arg.base.reg_id));
+                PUSH_BYTE(COMBINE_REG10(0b000, arg1.value.mem_arg.base.reg_id));
+
+                // SCALE AND INDEX REGISTERS ARE NOT SUPPORTED
             }
             else {
                 PUSH_BYTE(0x8f);
@@ -319,7 +334,7 @@ size_t write_command(const AsmCmd *cmd, uint8_t *buffer) {
             size += write_2regs64_pattern(0x29, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
             break;
 
-        case COMBINE_CMD(IMUL, 64, REG, 0):
+        case COMBINE_CMD(IMUL, 64, REG, NONE):
             R8_CHECK(REG_ID(arg1), 0x49)
             else PUSH_BYTE(0x48);
 
@@ -327,7 +342,7 @@ size_t write_command(const AsmCmd *cmd, uint8_t *buffer) {
             PUSH_BYTE(COMBINE_REG11(0b101, REG_ID(arg1)));
             break;
         
-        case COMBINE_CMD(IDIV, 64, REG, 0):
+        case COMBINE_CMD(IDIV, 64, REG, NONE):
             R8_CHECK(REG_ID(arg1), 0x49)
             else PUSH_BYTE(0x48);
 
@@ -347,11 +362,11 @@ size_t write_command(const AsmCmd *cmd, uint8_t *buffer) {
             size += write_2regs64_pattern(0x31, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
             break;
 
-        case COMBINE_CMD(RET, 0, 0, 0):
+        case COMBINE_CMD(RET, 0, NONE, NONE):
             PUSH_BYTE(0xc3);
             break;
 
-        case COMBINE_CMD(CDQE, 0, 0, 0):
+        case COMBINE_CMD(CDQE, 0, NONE, NONE):
             PUSH_BYTE(0x48);
             PUSH_BYTE(0x98);
             break;
@@ -364,83 +379,85 @@ size_t write_command(const AsmCmd *cmd, uint8_t *buffer) {
             size += write_2regs64_pattern(0x39, &arg1.value.reg_arg, &arg2.value.reg_arg, buffer);
             break;
 
-        case COMBINE_CMD(JMP, 32, CONST, 0):
+        case COMBINE_CMD(JMP, 32, CONST, NONE):
             PUSH_BYTE(0xe9);
             PUSH_INT(arg1.value.const_arg.value);
             break;
         
-        case COMBINE_CMD(JE, 32, CONST, 0):
+        case COMBINE_CMD(JE, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x84);
             PUSH_INT(arg1.value.const_arg.value);
             break;
         
-        case COMBINE_CMD(JNE, 32, CONST, 0):
+        case COMBINE_CMD(JNE, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x85);
             PUSH_INT(arg1.value.const_arg.value);
             break;
         
-        case COMBINE_CMD(JG, 32, CONST, 0):
+        case COMBINE_CMD(JG, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x8f);
             PUSH_INT(arg1.value.const_arg.value);
             break;
         
-        case COMBINE_CMD(JGE, 32, CONST, 0):
+        case COMBINE_CMD(JGE, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x8d);
             PUSH_INT(arg1.value.const_arg.value);
             break;
 
-        case COMBINE_CMD(JL, 32, CONST, 0):
+        case COMBINE_CMD(JL, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x8c);
             PUSH_INT(arg1.value.const_arg.value);
             break;
         
-        case COMBINE_CMD(JLE, 32, CONST, 0):
+        case COMBINE_CMD(JLE, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x8e);
             PUSH_INT(arg1.value.const_arg.value);
             break;
         
-        case COMBINE_CMD(JA, 32, CONST, 0):
+        case COMBINE_CMD(JA, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x87);
             PUSH_INT(arg1.value.const_arg.value);
             break;
 
-        case COMBINE_CMD(JAE, 32, CONST, 0):
+        case COMBINE_CMD(JAE, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x83);
             PUSH_INT(arg1.value.const_arg.value);
             break;
         
-        case COMBINE_CMD(JB, 32, CONST, 0):
+        case COMBINE_CMD(JB, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x82);
             PUSH_INT(arg1.value.const_arg.value);
             break;
 
-        case COMBINE_CMD(JBE, 32, CONST, 0):
+        case COMBINE_CMD(JBE, 32, CONST, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x86);
             PUSH_INT(arg1.value.const_arg.value);
             break;
 
-        case COMBINE_CMD(SYSCALL, 0, 0, 0):
+        case COMBINE_CMD(SYSCALL, 0, NONE, NONE):
             PUSH_BYTE(0x0f);
             PUSH_BYTE(0x05);
             break;
 
-        case COMBINE_CMD(CALL, 32, CONST, 0):
+        case COMBINE_CMD(CALL, 32, CONST, NONE):
             PUSH_BYTE(0xe8);
             PUSH_INT(arg1.value.const_arg.value);
             break;
 
         default: 
-            printf("Uknown command combination!\n");
+            printf("Uknown command or operands combination: ");
+            print_command(cmd, stdout);
+            putc('\n', stdout);
             break;
     }
 
@@ -463,14 +480,9 @@ void print_command(const AsmCmd *cmd, FILE *file) {
         case AND:       fprintf(file, "and "); break;
         case OR:        fprintf(file, "or "); break;
         case XOR:       fprintf(file, "xor "); break;
-        // case SHR:       fprintf(file, "shr "); break;
-        // case SHL:       fprintf(file, "shl "); break;
-        // case INC:       fprintf(file, "inc "); break;
-        // case DEC:       fprintf(file, "dec "); break;
         case CALL:      fprintf(file, "call "); break;
         case RET:       fprintf(file, "ret "); break;
         case CDQE:      fprintf(file, "cdqe"); break;
-        // case LEA:       fprintf(file, "lea "); break;
         case TEST:      fprintf(file, "test "); break;
         case CMP:       fprintf(file, "cmp "); break;
         case JMP:       fprintf(file, "jmp "); break;
@@ -549,6 +561,9 @@ void print_register_argument(const arg_reg_t *reg_arg, FILE *file) {
 
 
 void print_memory_argument(const arg_mem_t *mem_arg, FILE *file) {
+    ASSERT(mem_arg,, "Argument is null pointer!\n");
+    ASSERT(file,, "File is null pointer!\n");
+
     switch (mem_arg -> size) {
         case 8: fprintf(file, "BYTE"); break;
         case 16: fprintf(file, "WORD"); break;
@@ -614,11 +629,13 @@ AsmArg create_mem(uint8_t size, int32_t displace, arg_reg_t base, arg_reg_t inde
 
 
 void set_jmp_address(AsmCmd *cmd, int32_t address) {
+    ASSERT(cmd,, "Null pointer!\n");
     cmd -> arg1.value.const_arg.value = address;
 }
 
 
 void set_jmp_rel_address(AsmCmd *cmd, int32_t address) {
+    ASSERT(cmd,, "Null pointer!\n");
     cmd -> arg1.value.const_arg.value = address - cmd -> arg1.value.const_arg.value;
 }
 

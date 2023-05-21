@@ -23,7 +23,7 @@ front.exe: $(addprefix $(BIN_DIR)/, $(addsuffix .o, front image_parser symbol_pa
 
 
 # Завершает сборку back.cpp
-back.exe: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back input-output tree text program stack parser inter))
+back.exe: $(addprefix $(BIN_DIR)/, $(addsuffix .o, back input-output tree text program stack parser inter elf_output))
 	$(COMPILER) $^ -o back.exe
 
 
@@ -68,7 +68,7 @@ $(BIN_DIR)/input-output.o: $(addprefix $(SRC_DIR)/, input-output.cpp input-outpu
 
 
 # Предварительная сборка program.cpp
-$(BIN_DIR)/program.o: $(addprefix $(SRC_DIR)/, program.cpp program.hpp inter.hpp) $(addprefix $(LIB_DIR)/, tree.hpp stack.hpp text.hpp)
+$(BIN_DIR)/program.o: $(addprefix $(SRC_DIR)/, program.cpp program.hpp inter.hpp elf_output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp stack.hpp text.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
@@ -84,6 +84,11 @@ $(BIN_DIR)/dsl.o: $(addprefix $(SRC_DIR)/, dsl.cpp dsl.hpp) $(addprefix $(LIB_DI
 
 # Предварительная сборка inter.cpp
 $(BIN_DIR)/inter.o: $(addprefix $(SRC_DIR)/, inter.cpp inter.hpp)
+	$(COMPILER) $(FLAGS) -c $< -o $@
+
+
+# Предварительная сборка elf_output.cpp
+$(BIN_DIR)/elf_output.o: $(addprefix $(SRC_DIR)/, elf_output.cpp elf_output.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 

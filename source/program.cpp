@@ -19,18 +19,20 @@
 #include "libs/text.hpp"
 #include "program.hpp"
 #include "inter.hpp"
+#include "elf_output.hpp"
 
 
 /// Code offset in assembler output
 const int TAB_SIZE = 4;
 
-
+/// Intermediate representation initial capacity
 const size_t IR_INIT_CAPACITY = 512;
 
 
 typedef stack_data_t Variable;
 typedef stack_data_t Function;
 typedef unsigned long long hash_t;
+
 
 struct VarList {
     Stack list = {};
@@ -74,15 +76,11 @@ do {                                                \
 /// Calls function for assembler source code output with only argument
 #define CALL_FUNC(func_name, node_arg) func_name(node_arg, file, var_list, ir)
 
-
-
-
 /// Current line index in file
 int line = 1;
 
 /// List of the functions
 Stack func_list = {};
-
 
 /// Reads definition sequence type node and prints result to file
 void read_def_sequence(const Node *node, FILE *file, VarList *var_list, IR *ir);
@@ -110,6 +108,9 @@ void add_if(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Prints while operator to file
 void add_while(const Node *node, FILE *file, VarList *var_list, IR *ir);
+
+/// Prints function argument in reverse order and counts their amount
+int add_function_call_arg(const Node *node, FILE *file, VarList *var_list, IR *ir);
 
 /// Prints function call to file
 void add_function_call(const Node *node, FILE *file, VarList *var_list, IR *ir);
@@ -153,7 +154,13 @@ void include_file(const char *filename, FILE *file);
 int get_frame_size(const VarList *varlist);
 
 
-/// Prints condition result to file
+/**
+ * \brief Prints condition expression to the file
+ * \param [in]  cmd_str     Conditional jmp string
+ * \param [in]  cmd_opcode  Conditional jmp opcode
+ * \param [out] file        Output stream
+ * \param [out] ir          Intermediate representation
+*/
 void print_cond(const char *cmd_str, uint8_t cmd_opcode, FILE *file, IR *ir);
 
 
@@ -251,7 +258,9 @@ int print_program(const Tree *tree, const char *filename) {
 
     set_jmp_rel_address(ir.cmds, (int32_t) main_func -> func_offset);
 
-    IR_dump(&ir, stdout);
+    // IR_dump(&ir, stdout);
+
+    create_elf("my_elf.exe", &ir);
 
     IR_destructor(&ir);
 
@@ -600,14 +609,14 @@ void add_while(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     PRINTL("jmp CYCLE_%i_CONDITION", cur_line);
     create_jmp(ir, JMP);
 
-    PRINTL("CYCLE_%i:", cur_line);
+    PRINT("CYCLE_%i:", cur_line);
     size_t cycle_ip = ir -> ip;
 
     VarList new_varlist = init_varlist(var_list);
     read_sequence(node -> right, file, &new_varlist, ir);
     free_varlist(&new_varlist);
 
-    PRINTL("CYCLE_%i_CONDITION:", cur_line);
+    PRINT("CYCLE_%i_CONDITION:", cur_line);
     set_jmp_rel_address(ir -> cmds + jmp_index, (int32_t) ir -> ip);
 
     CALL_FUNC(add_expression, node -> left);
@@ -618,8 +627,20 @@ void add_while(const Node *node, FILE *file, VarList *var_list, IR *ir) {
     PRINTL("test rdi, rdi");
     IR_add(ir, TEST, create_reg(64, DI), create_reg(64, DI));
 
-    PRINTL("jne CYCLE_%i:", cur_line);
-    IR_add(ir, JNE, create_const(64, cycle_ip));
+    PRINTL("jne CYCLE_%i", cur_line);
+    create_jmp(ir, JNE);
+    set_jmp_rel_address(ir -> cmds + ir -> size - 1, (int32_t) cycle_ip);
+}
+
+
+int add_function_call_arg(const Node *node, FILE *file, VarList *var_list, IR *ir) {
+    int arg_count = 0;
+
+    if (node -> right) arg_count = CALL_FUNC(add_function_call_arg, node -> right);
+
+    CALL_FUNC(add_expression, node -> left);
+
+    return arg_count + 1;
 }
 
 
@@ -631,12 +652,7 @@ void add_function_call(const Node *node, FILE *file, VarList *var_list, IR *ir) 
     ASSERT(func, "Function %s was not declarated in the current scope!\n", node -> value.var);
 
     int arg_count = 0;
-
-    for (const Node *arg = node -> left; arg; arg = arg -> right, arg_count++) {
-        ASSERT(arg -> type == TYPE_ARG, "Node is not argument type!\n");
-
-        CALL_FUNC(add_expression, arg -> left);
-    }
+    if (node -> left) arg_count = CALL_FUNC(add_function_call_arg, node -> left);
 
     ASSERT(arg_count == func -> index, "Function %s expects %i arguments, but got %i!\n", func -> name, func -> index, arg_count);
 
