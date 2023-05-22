@@ -20,7 +20,11 @@
 #include "program.hpp"
 #include "inter.hpp"
 #include "elf_output.hpp"
+#include "my_stdlib.hpp"
 
+
+/// Main function of the program
+#define FUNC_MAIN "VAR_22B14C_01B8923B"
 
 /// Code offset in assembler output
 const int TAB_SIZE = 4;
@@ -204,13 +208,13 @@ int print_program(const Tree *tree, const char *filename) {
     IR ir = {};
     IR_constructor(&ir, IR_INIT_CAPACITY);
 
-    const char *MAIN_FUNC = "VAR_22B14C_01B8923B";
-
     Function lib[] = {
-        {"VAR_22B14C_00076DC0", gnu_hash("VAR_22B14C_00076DC0"), 0, 0, 0},
-        {"VAR_22B14C_01435CD4", gnu_hash("VAR_22B14C_01435CD4"), 1, 0, 0},
-        {"VAR_22B14C_0062909C", gnu_hash("VAR_22B14C_0062909C"), 1, 0, 0},
+        {FUNC_IN,   gnu_hash(FUNC_IN),      IN_ARGS_NUMBER,     0.0, IN_OFFSET},
+        {FUNC_OUT,  gnu_hash(FUNC_OUT),     OUT_ARGS_NUMBER,    0.0, OUT_OFFSET},
+        {FUNC_SQRT, gnu_hash(FUNC_SQRT),    SQRT_ARGS_NUMBER,   0.0, SQRT_OFFSET},
     };
+
+    ir.ip = STDLIB_SIZE;
 
     for (int i = 0; i < (int)(sizeof(lib) / sizeof(Function)); i++) stack_push(&func_list, lib[i]);
 
@@ -225,7 +229,7 @@ int print_program(const Tree *tree, const char *filename) {
 
     PRINT("_start:");
 
-    PRINTL("call FUNC_22B14C_01B8923B");
+    PRINTL("call %s", "FUNC_22B14C_01B8923B");
     create_jmp(&ir, CALL);
 
     PRINTL("mov rdi, rax"); // COPY MAIN EXIT CODE TO SYSCALL
@@ -249,7 +253,7 @@ int print_program(const Tree *tree, const char *filename) {
             PRINT("%s dq %d", global_list.list.data[i].name, (int)(global_list.list.data[i].init_value * 1000));
     }
 
-    Function *main_func = find_function(MAIN_FUNC);
+    Function *main_func = find_function(FUNC_MAIN);
 
     if (!main_func) {
         printf("Main function was not declarated in the current scope!\n");

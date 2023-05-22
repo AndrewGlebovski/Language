@@ -347,7 +347,7 @@ size_t write_command(const AsmCmd *cmd, uint8_t *buffer) {
             else PUSH_BYTE(0x48);
 
             PUSH_BYTE(0xf7);
-            PUSH_BYTE(COMBINE_REG11(0b101, REG_ID(arg1)));
+            PUSH_BYTE(COMBINE_REG11(0b111, REG_ID(arg1)));
             break;
 
         case COMBINE_CMD(AND, 64, REG, REG):

@@ -68,7 +68,7 @@ $(BIN_DIR)/input-output.o: $(addprefix $(SRC_DIR)/, input-output.cpp input-outpu
 
 
 # Предварительная сборка program.cpp
-$(BIN_DIR)/program.o: $(addprefix $(SRC_DIR)/, program.cpp program.hpp inter.hpp elf_output.hpp) $(addprefix $(LIB_DIR)/, tree.hpp stack.hpp text.hpp)
+$(BIN_DIR)/program.o: $(addprefix $(SRC_DIR)/, program.cpp program.hpp inter.hpp elf_output.hpp my_stdlib.hpp) $(addprefix $(LIB_DIR)/, tree.hpp stack.hpp text.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 
@@ -88,7 +88,7 @@ $(BIN_DIR)/inter.o: $(addprefix $(SRC_DIR)/, inter.cpp inter.hpp)
 
 
 # Предварительная сборка elf_output.cpp
-$(BIN_DIR)/elf_output.o: $(addprefix $(SRC_DIR)/, elf_output.cpp elf_output.hpp)
+$(BIN_DIR)/elf_output.o: $(addprefix $(SRC_DIR)/, elf_output.cpp elf_output.hpp my_stdlib.hpp)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
 

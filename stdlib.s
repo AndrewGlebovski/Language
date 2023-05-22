@@ -3,7 +3,6 @@ section .text
 
 CallRead        equ 0
 CallWrite       equ 1
-CallExit        equ 60
 
 StdIn           equ 0
 StdOut          equ 1
@@ -22,15 +21,18 @@ SqrtEpsilon     equ 5
 ;----------------------------------------
 
 FUNC_22B14C_00076DC0:
+    ; Allocate buffer
+    sub rsp, BufSize
+
     ; Read in buffer
     mov rdx, BufSize
     mov rax, CallRead
     mov rdi, StdIn
-    mov rsi, Buffer
+    mov rsi, rsp
     syscall
 
     ; Set rdi to buffer
-    mov rdi, Buffer
+    mov rdi, rsp
 
     ; Clear RAX, RCX, RSI, RDX
     xor rax, rax
@@ -81,6 +83,8 @@ FUNC_22B14C_00076DC0:
     sub rax, r11
 
 .Positive:
+    add rsp, BufSize 
+
     ret
 
 ;----------------------------------------
@@ -98,8 +102,11 @@ FUNC_22B14C_01435CD4:
     ; Get RAX from stack
     mov rax, [rsp+8]
 
+    ; Allocate buffer
+    sub rsp, BufSize
+
     ; Set RDI to buffer
-    mov rdi, Buffer
+    mov rdi, rsp
 
     ; Set loop length and prepare for division
     xor rdx, rdx
@@ -160,8 +167,11 @@ FUNC_22B14C_01435CD4:
     mov rdx, BufSize
     mov rax, CallWrite
     mov rdi, StdOut
-    mov rsi, Buffer
+    mov rsi, rsp
     syscall
+
+    ; Delete buffer
+    add rsp, BufSize
 
     ret
 
@@ -235,9 +245,3 @@ FUNC_22B14C_0062909C:
     ret
 
 ;----------------------------------------
-
-
-section .data
-
-
-Buffer          db BufSize dup(0)        ; Printf buffer
