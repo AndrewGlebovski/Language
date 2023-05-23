@@ -286,7 +286,7 @@ size_t write_command(const AsmCmd *cmd, uint8_t *buffer) {
             }
             else {
                 PUSH_BYTE(0xff);
-                PUSH_BYTE(0x04);
+                PUSH_BYTE(0x34);
                 PUSH_BYTE(0x25);
             }
 

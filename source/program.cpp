@@ -245,12 +245,22 @@ int print_program(const Tree *tree, const char *filename) {
 
     read_def_sequence(tree -> root, file, &global_list, &ir);
 
-    if (global_list.list.size) {
+    // ЛЮТЕЙШИЙ КОСТЫЛЬ
+    global_t *globals = nullptr;
+    size_t globals_size = global_list.list.size;
+
+    if (globals_size) {
         PRINT("section .data");
         SKIP_LINE();
 
-        for (int i = 0; i < global_list.list.size; i++)
+        globals = (global_t *) calloc(globals_size, sizeof(global_t));
+        assert(globals && "Can't allocate globals!\n");
+
+        for (size_t i = 0; i < globals_size; i++) {
+            globals[i] = {(size_t) global_list.list.data[i].index, global_list.list.data[i].init_value};
+
             PRINT("%s dq %d", global_list.list.data[i].name, (int)(global_list.list.data[i].init_value * 1000));
+        }
     }
 
     Function *main_func = find_function(FUNC_MAIN);
@@ -264,7 +274,9 @@ int print_program(const Tree *tree, const char *filename) {
 
     // IR_dump(&ir, stdout);
 
-    create_elf("my_elf.exe", &ir);
+    create_elf("run.exe", &ir, globals, globals_size);
+
+    free(globals);
 
     IR_destructor(&ir);
 
@@ -414,7 +426,7 @@ void add_expression(const Node *node, FILE *file, VarList *var_list, IR *ir) {
 
             if (is_global) {
                 PRINTL("push QWORD [%s]", var -> name);
-                IR_add(ir, PUSH, create_mem(64, var -> index * 8));
+                IR_add(ir, PUSH, create_mem(64, 0x402000 + var -> index * 8));
             }
             else {
                 PRINTL("push QWORD [rbp + (%i)]", var -> index * 8);
@@ -544,7 +556,7 @@ void add_assign(const Node *node, FILE *file, VarList *var_list, IR *ir) {
 
     if (is_global) {
         PRINTL("pop QWORD [%s]", var -> name);
-        IR_add(ir, POP, create_mem(64, var -> index * 8));
+        IR_add(ir, POP, create_mem(64, 0x402000 + var -> index * 8));
     }
     else {
         PRINTL("pop QWORD [rbp + (%i)]", var -> index * 8);
